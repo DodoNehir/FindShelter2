@@ -1,0 +1,22 @@
+<resources>
+    <string name="app_name">FindShelter</string>
+    <string name="navigation_drawer_open">Open navigation drawer</string>
+    <string name="navigation_drawer_close">Close navigation drawer</string>
+    <string name="nav_header_title">Find Shelter</string>
+    <string name="nav_header_subtitle">finding your shelter</string>
+    <string name="nav_header_desc">Navigation header</string>
+<!--    <string name="action_settings">Settings</string>-->
+
+    <string name="menu_home">Home</string>
+    <string name="menu_settings">Settings</string>
+
+
+    <!-- MyLocationDemo-->
+    <string name="my_location_demo_label">My Location Demo</string>
+    <string name="my_location_demo_details">Demonstrates how to use GMS Location.</string>
+
+    <!-- Permissions -->
+    <string name="permission_rationale_location">내 위치를 지도에 표시하기 위해 위치 권한이 필요합니다.\n기기 위치 사용을 허용해주세요</string>
+    <string name="location_permission_denied">앱을 다시 실행해서 위치 권한을 부여해주세요.\n또는 폰 설정 &gt; 앱 &gt; \'무더위 쉼터\'로 들어가서 권한을 부여할 수 있습니다.</string>
+    <string name="permission_required_toast">앱 실행을 위해 위치 권한이 필요합니다.</string>
+</resources>

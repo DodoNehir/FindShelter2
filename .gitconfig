@@ -1,0 +1,7 @@
+[user]
+	email = "rojalaurant@gamil.com"
+	name = "DodoNehir"
+
+[core]
+	eol = lf
+	autocrlf = input
