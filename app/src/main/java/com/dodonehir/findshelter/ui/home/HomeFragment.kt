@@ -2,6 +2,7 @@ package com.dodonehir.findshelter.ui.home
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.content.Context
 import android.content.pm.PackageManager
 import android.location.Location
 import android.os.Bundle
@@ -35,7 +36,7 @@ class HomeFragment : Fragment() {
     private lateinit var homeViewModel: HomeViewModel
     private lateinit var map: GoogleMap
     private val defaultLocation_GwanghwamunSquare = LatLng(37.575939, 126.976856)
-    private var lastKnownLocation: Location? = null
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -70,6 +71,17 @@ class HomeFragment : Fragment() {
         return root
     }
 
+    override fun onDetach() {
+        super.onDetach()
+        map.let { map ->
+            homeViewModel.cameraPosition = map.cameraPosition
+        }
+    }
+
+    override fun onAttach(context: Context) {
+        super.onAttach(context)
+    }
+
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
@@ -88,13 +100,19 @@ class HomeFragment : Fragment() {
                     if (task.isSuccessful) {
                         // 맵 카메라를 현재 위치로 이동
                         Log.d(TAG, "getDeviceLocation: 맵 카메라를 현재 위치로 이동")
-                        lastKnownLocation = task.result
-                        if (lastKnownLocation != null) {
+                        homeViewModel.lastKnownLocation = task.result
+                        if (homeViewModel.cameraPosition != null) {
+                            map.moveCamera(
+                                CameraUpdateFactory.newCameraPosition(
+                                    homeViewModel.cameraPosition!!
+                                )
+                            )
+                        } else {
                             map.moveCamera(
                                 CameraUpdateFactory.newLatLngZoom(
                                     LatLng(
-                                        lastKnownLocation!!.latitude,
-                                        lastKnownLocation!!.longitude
+                                        homeViewModel.lastKnownLocation.latitude,
+                                        homeViewModel.lastKnownLocation.longitude
                                     ),
                                     DEFAULT_ZOOM.toFloat()
                                 )
@@ -173,7 +191,6 @@ class HomeFragment : Fragment() {
                 Log.d(TAG, "내 위치(GPS) 버튼 비활성화")
                 map.isMyLocationEnabled = false
                 map.uiSettings.isMyLocationButtonEnabled = false
-                lastKnownLocation = null
                 getLocationPermission()
             }
         } catch (e: SecurityException) {
