@@ -1,6 +1,7 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    id("com.google.android.libraries.mapsplatform.secrets-gradle-plugin")
 }
 
 android {
@@ -58,4 +59,7 @@ dependencies {
     implementation("com.squareup.retrofit2:converter-moshi:2.9.0")
     // Moshi: (Gson과 유사하지만, 성능이 더 빠르고 코틀린과의 호환성이 더 높고 직렬화/역직렬화를 쉽게 할 수 있다.)
     implementation("com.squareup.moshi:moshi-kotlin:1.9.3")
+
+    // Google Maps
+    implementation("com.google.android.gms:play-services-maps:18.1.0")
 }
