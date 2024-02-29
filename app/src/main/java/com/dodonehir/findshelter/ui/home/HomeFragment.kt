@@ -2,6 +2,7 @@ package com.dodonehir.findshelter.ui.home
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.content.Context
 import android.content.pm.PackageManager
 import android.location.Location
 import android.os.Bundle
@@ -13,14 +14,20 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
+import com.dodonehir.findshelter.BuildConfig
 import com.dodonehir.findshelter.R
 import com.dodonehir.findshelter.databinding.FragmentHomeBinding
+import com.dodonehir.findshelter.model.GoogleAddressResponse
+import com.dodonehir.findshelter.network.GMSApi
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.SupportMapFragment
 import com.google.android.gms.maps.model.LatLng
+import retrofit2.Call
+import retrofit2.Callback
+import retrofit2.Response
 
 class HomeFragment : Fragment() {
 
@@ -35,7 +42,8 @@ class HomeFragment : Fragment() {
     private lateinit var homeViewModel: HomeViewModel
     private lateinit var map: GoogleMap
     private val defaultLocation_GwanghwamunSquare = LatLng(37.575939, 126.976856)
-    private var lastKnownLocation: Location? = null
+    lateinit var lastKnownLocation: Location
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -48,9 +56,11 @@ class HomeFragment : Fragment() {
         val root: View = binding.root
 
 //        val textView: TextView = binding.textHome
-//        homeViewModel.text.observe(viewLifecycleOwner) {
-//            textView.text = it
-//        }
+        homeViewModel.isLocationInitialized.observe(viewLifecycleOwner) {initialized ->
+            if (initialized) {
+                getKoreanAddress()
+            }
+        }
 
         // Fragment에 map fragment를 표시
         (childFragmentManager.findFragmentById(R.id.map) as SupportMapFragment).getMapAsync {
@@ -70,9 +80,55 @@ class HomeFragment : Fragment() {
         return root
     }
 
+    override fun onDetach() {
+        super.onDetach()
+        map.let { map ->
+            homeViewModel.cameraPosition = map.cameraPosition
+        }
+    }
+
+    override fun onAttach(context: Context) {
+        super.onAttach(context)
+    }
+
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
+    }
+
+    private fun getKoreanAddress() {
+        var latitude = lastKnownLocation.latitude.toString()
+        var longitude = lastKnownLocation.longitude.toString()
+        val geoCall = GMSApi.geoService.getResults(
+            "${latitude},${longitude}",
+            BuildConfig.MAPS_API_KEY,
+            "ko",
+            "street_address"
+        )
+        geoCall.enqueue(object : Callback<GoogleAddressResponse> {
+            override fun onResponse(
+                call: Call<GoogleAddressResponse>,
+                response: Response<GoogleAddressResponse>
+            ) {
+                val googleAddressResponse = response.body()
+
+                if (googleAddressResponse != null) {
+                    Log.d("GEO 로그", "응답 내용 status: " + googleAddressResponse.status)
+                    val addressParts = (googleAddressResponse.results[0].formatted_address).split(" ")
+                    val city = addressParts[1]
+                    val district = addressParts[2]
+                    val dong = addressParts[3]
+                    Log.d(TAG, "split : ${city}, ${district}, ${dong}")
+                } else {
+                    Log.d("GEO 로그", "응답 내용 status 가 null입니다")
+                }
+            }
+
+            override fun onFailure(call: Call<GoogleAddressResponse>, t: Throwable) {
+                Log.e("GEO 로그", "Fail!!")
+            }
+
+        })
     }
 
     @SuppressLint("MissingPermission")
@@ -89,12 +145,19 @@ class HomeFragment : Fragment() {
                         // 맵 카메라를 현재 위치로 이동
                         Log.d(TAG, "getDeviceLocation: 맵 카메라를 현재 위치로 이동")
                         lastKnownLocation = task.result
-                        if (lastKnownLocation != null) {
+                        homeViewModel.setLocationInitialized(true, lastKnownLocation)
+                        if (homeViewModel.cameraPosition != null) {
+                            map.moveCamera(
+                                CameraUpdateFactory.newCameraPosition(
+                                    homeViewModel.cameraPosition!!
+                                )
+                            )
+                        } else {
                             map.moveCamera(
                                 CameraUpdateFactory.newLatLngZoom(
                                     LatLng(
-                                        lastKnownLocation!!.latitude,
-                                        lastKnownLocation!!.longitude
+                                        lastKnownLocation.latitude,
+                                        lastKnownLocation.longitude
                                     ),
                                     DEFAULT_ZOOM.toFloat()
                                 )
@@ -173,7 +236,6 @@ class HomeFragment : Fragment() {
                 Log.d(TAG, "내 위치(GPS) 버튼 비활성화")
                 map.isMyLocationEnabled = false
                 map.uiSettings.isMyLocationButtonEnabled = false
-                lastKnownLocation = null
                 getLocationPermission()
             }
         } catch (e: SecurityException) {
