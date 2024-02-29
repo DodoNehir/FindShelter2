@@ -4,6 +4,7 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
+import android.location.Location
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
@@ -41,6 +42,7 @@ class HomeFragment : Fragment() {
     private lateinit var homeViewModel: HomeViewModel
     private lateinit var map: GoogleMap
     private val defaultLocation_GwanghwamunSquare = LatLng(37.575939, 126.976856)
+    lateinit var lastKnownLocation: Location
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -54,9 +56,11 @@ class HomeFragment : Fragment() {
         val root: View = binding.root
 
 //        val textView: TextView = binding.textHome
-//        homeViewModel.text.observe(viewLifecycleOwner) {
-//            textView.text = it
-//        }
+        homeViewModel.isLocationInitialized.observe(viewLifecycleOwner) {initialized ->
+            if (initialized) {
+                getKoreanAddress()
+            }
+        }
 
         // Fragment에 map fragment를 표시
         (childFragmentManager.findFragmentById(R.id.map) as SupportMapFragment).getMapAsync {
@@ -64,7 +68,6 @@ class HomeFragment : Fragment() {
             map = it
             updateLocationUI()
             getDeviceLocation()
-            getKoreanAddress()
         }
 
         // 기기의 현재 위치 검색을 위함
@@ -94,21 +97,28 @@ class HomeFragment : Fragment() {
     }
 
     private fun getKoreanAddress() {
+        var latitude = lastKnownLocation.latitude.toString()
+        var longitude = lastKnownLocation.longitude.toString()
         val geoCall = GMSApi.geoService.getResults(
-            "40.714224,-73.961452",
+            "${latitude},${longitude}",
             BuildConfig.MAPS_API_KEY,
             "ko",
-            "ROOFTOP"
+            "street_address"
         )
         geoCall.enqueue(object : Callback<GoogleAddressResponse> {
             override fun onResponse(
                 call: Call<GoogleAddressResponse>,
                 response: Response<GoogleAddressResponse>
             ) {
-                val addressInfo = response.body()
+                val googleAddressResponse = response.body()
 
-                if (addressInfo != null) {
-                    Log.d("GEO 로그", "응답 내용 status: " + addressInfo.status)
+                if (googleAddressResponse != null) {
+                    Log.d("GEO 로그", "응답 내용 status: " + googleAddressResponse.status)
+                    val addressParts = (googleAddressResponse.results[0].formatted_address).split(" ")
+                    val city = addressParts[1]
+                    val district = addressParts[2]
+                    val dong = addressParts[3]
+                    Log.d(TAG, "split : ${city}, ${district}, ${dong}")
                 } else {
                     Log.d("GEO 로그", "응답 내용 status 가 null입니다")
                 }
@@ -134,7 +144,8 @@ class HomeFragment : Fragment() {
                     if (task.isSuccessful) {
                         // 맵 카메라를 현재 위치로 이동
                         Log.d(TAG, "getDeviceLocation: 맵 카메라를 현재 위치로 이동")
-                        homeViewModel.lastKnownLocation = task.result
+                        lastKnownLocation = task.result
+                        homeViewModel.setLocationInitialized(true, lastKnownLocation)
                         if (homeViewModel.cameraPosition != null) {
                             map.moveCamera(
                                 CameraUpdateFactory.newCameraPosition(
@@ -145,8 +156,8 @@ class HomeFragment : Fragment() {
                             map.moveCamera(
                                 CameraUpdateFactory.newLatLngZoom(
                                     LatLng(
-                                        homeViewModel.lastKnownLocation.latitude,
-                                        homeViewModel.lastKnownLocation.longitude
+                                        lastKnownLocation.latitude,
+                                        lastKnownLocation.longitude
                                     ),
                                     DEFAULT_ZOOM.toFloat()
                                 )

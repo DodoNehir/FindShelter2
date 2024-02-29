@@ -62,13 +62,13 @@ dependencies {
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
 
-    // Retrofit
-//    implementation("com.squareup.retrofit2:retrofit:2.9.0")
     // Retrofit with Moshi Converter
     implementation("com.squareup.retrofit2:converter-moshi:2.9.0")
     // Moshi: (Gson과 유사하지만, 성능이 더 빠르고 코틀린과의 호환성이 더 높고 직렬화/역직렬화를 쉽게 할 수 있다.)
     implementation("com.squareup.moshi:moshi-kotlin:1.15.0")
     ksp("com.squareup.moshi:moshi-kotlin-codegen:1.15.0")
+    // Logging
+    implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
 
     // Google Maps
     implementation("com.google.android.gms:play-services-maps:18.2.0")
