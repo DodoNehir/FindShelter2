@@ -4,7 +4,6 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
-import android.location.Location
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
@@ -14,14 +13,20 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
+import com.dodonehir.findshelter.BuildConfig
 import com.dodonehir.findshelter.R
 import com.dodonehir.findshelter.databinding.FragmentHomeBinding
+import com.dodonehir.findshelter.model.GoogleAddressResponse
+import com.dodonehir.findshelter.network.GMSApi
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.SupportMapFragment
 import com.google.android.gms.maps.model.LatLng
+import retrofit2.Call
+import retrofit2.Callback
+import retrofit2.Response
 
 class HomeFragment : Fragment() {
 
@@ -59,6 +64,7 @@ class HomeFragment : Fragment() {
             map = it
             updateLocationUI()
             getDeviceLocation()
+            getKoreanAddress()
         }
 
         // 기기의 현재 위치 검색을 위함
@@ -85,6 +91,34 @@ class HomeFragment : Fragment() {
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
+    }
+
+    private fun getKoreanAddress() {
+        val geoCall = GMSApi.geoService.getResults(
+            "40.714224,-73.961452",
+            BuildConfig.MAPS_API_KEY,
+            "ko",
+            "ROOFTOP"
+        )
+        geoCall.enqueue(object : Callback<GoogleAddressResponse> {
+            override fun onResponse(
+                call: Call<GoogleAddressResponse>,
+                response: Response<GoogleAddressResponse>
+            ) {
+                val addressInfo = response.body()
+
+                if (addressInfo != null) {
+                    Log.d("GEO 로그", "응답 내용 status: " + addressInfo.status)
+                } else {
+                    Log.d("GEO 로그", "응답 내용 status 가 null입니다")
+                }
+            }
+
+            override fun onFailure(call: Call<GoogleAddressResponse>, t: Throwable) {
+                Log.e("GEO 로그", "Fail!!")
+            }
+
+        })
     }
 
     @SuppressLint("MissingPermission")

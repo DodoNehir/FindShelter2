@@ -1,6 +1,6 @@
 package com.dodonehir.findshelter.model
 
-data class RESULT(
+data class RESULTx(
     val resultCode: String,
     val resultMsg: String
 )
