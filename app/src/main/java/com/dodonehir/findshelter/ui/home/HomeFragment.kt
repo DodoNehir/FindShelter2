@@ -17,7 +17,9 @@ import androidx.lifecycle.ViewModelProvider
 import com.dodonehir.findshelter.BuildConfig
 import com.dodonehir.findshelter.R
 import com.dodonehir.findshelter.databinding.FragmentHomeBinding
+import com.dodonehir.findshelter.model.CodeResponse
 import com.dodonehir.findshelter.model.GoogleAddressResponse
+import com.dodonehir.findshelter.network.DongCodeApi
 import com.dodonehir.findshelter.network.GMSApi
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
@@ -56,9 +58,21 @@ class HomeFragment : Fragment() {
         val root: View = binding.root
 
 //        val textView: TextView = binding.textHome
-        homeViewModel.isLocationInitialized.observe(viewLifecycleOwner) {initialized ->
+        homeViewModel.isLocationInitialized.observe(viewLifecycleOwner) { initialized ->
             if (initialized) {
                 getKoreanAddress()
+            }
+        }
+
+        homeViewModel.isGetAddressSuccess.observe(viewLifecycleOwner) { success ->
+            if (success) {
+                getCode()
+            }
+        }
+
+        homeViewModel.isGetCodeSuccess.observe(viewLifecycleOwner) {
+            if (it) {
+                getShelterLocations()
             }
         }
 
@@ -96,6 +110,38 @@ class HomeFragment : Fragment() {
         _binding = null
     }
 
+    private fun getShelterLocations() {
+
+    }
+
+    private fun getCode() {
+        val codeCall = DongCodeApi.dongCodeService.getCode(
+            homeViewModel.city,
+            homeViewModel.district,
+            homeViewModel.dong
+        )
+
+        codeCall.enqueue(object : Callback<List<CodeResponse>> {
+            override fun onResponse(
+                call: Call<List<CodeResponse>>,
+                response: Response<List<CodeResponse>>
+            ) {
+                Log.d(TAG, "getCode succeed")
+                val codeResponse = response.body()
+                val code = codeResponse?.get(0)?.code
+                if (code != null) {
+                    homeViewModel.getCodeSuccess(code)
+                }
+            }
+
+            override fun onFailure(call: Call<List<CodeResponse>>, t: Throwable) {
+                Log.e(TAG, "getCode failed")
+                t.message?.let { Log.e(TAG, it) }
+            }
+
+        })
+    }
+
     private fun getKoreanAddress() {
         var latitude = lastKnownLocation.latitude.toString()
         var longitude = lastKnownLocation.longitude.toString()
@@ -114,11 +160,13 @@ class HomeFragment : Fragment() {
 
                 if (googleAddressResponse != null) {
                     Log.d("GEO 로그", "응답 내용 status: " + googleAddressResponse.status)
-                    val addressParts = (googleAddressResponse.results[0].formatted_address).split(" ")
+                    val addressParts =
+                        (googleAddressResponse.results[0].formatted_address).split(" ")
                     val city = addressParts[1]
                     val district = addressParts[2]
                     val dong = addressParts[3]
                     Log.d(TAG, "split : ${city}, ${district}, ${dong}")
+                    homeViewModel.getAddressSuccess(city, district, dong)
                 } else {
                     Log.d("GEO 로그", "응답 내용 status 가 null입니다")
                 }
