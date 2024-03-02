@@ -20,6 +20,9 @@ android {
 
         buildConfigField("String", "MAPS_API_KEY",
             gradleLocalProperties(rootDir).getProperty("MAPS_API_KEY"))
+        buildConfigField("String", "SHELTER_ENCODING_KEY",
+            gradleLocalProperties(rootDir).getProperty("SHELTER_ENCODING_KEY")
+        )
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

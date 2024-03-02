@@ -19,8 +19,10 @@ import com.dodonehir.findshelter.R
 import com.dodonehir.findshelter.databinding.FragmentHomeBinding
 import com.dodonehir.findshelter.model.CodeResponse
 import com.dodonehir.findshelter.model.GoogleAddressResponse
+import com.dodonehir.findshelter.model.ShelterResponse
 import com.dodonehir.findshelter.network.DongCodeApi
 import com.dodonehir.findshelter.network.GMSApi
+import com.dodonehir.findshelter.network.ShelterApi
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.maps.CameraUpdateFactory
@@ -111,7 +113,36 @@ class HomeFragment : Fragment() {
     }
 
     private fun getShelterLocations() {
+        val shelterCall = ShelterApi.shelterPointService.getShelterPoint(
+            BuildConfig.SHELTER_ENCODING_KEY,
+            1,
+            5,
+            "json",
+            homeViewModel.code.toString(),
+            "001"
+        )
 
+        shelterCall.enqueue(object : Callback<ShelterResponse> {
+            override fun onResponse(
+                call: Call<ShelterResponse>,
+                response: Response<ShelterResponse>
+            ) {
+                Log.d(TAG, "getShelterLocations: succeed")
+                val shelterPointResponse = response.body()
+                if (shelterPointResponse != null) {
+                    Log.d(
+                        TAG,
+                        "shelter totalCount: ${shelterPointResponse.HeatWaveShelter[0].head[0].totalCount}"
+                    )
+                }
+            }
+
+            override fun onFailure(call: Call<ShelterResponse>, t: Throwable) {
+                Log.e(TAG, "getShelterLocations: failed")
+                t.message?.let { Log.e(TAG, it) }
+            }
+
+        })
     }
 
     private fun getCode() {
@@ -126,16 +157,16 @@ class HomeFragment : Fragment() {
                 call: Call<List<CodeResponse>>,
                 response: Response<List<CodeResponse>>
             ) {
-                Log.d(TAG, "getCode succeed")
                 val codeResponse = response.body()
                 val code = codeResponse?.get(0)?.code
                 if (code != null) {
+                    Log.d(TAG, "getCode: $code")
                     homeViewModel.getCodeSuccess(code)
                 }
             }
 
             override fun onFailure(call: Call<List<CodeResponse>>, t: Throwable) {
-                Log.e(TAG, "getCode failed")
+                Log.e(TAG, "getCode: failed")
                 t.message?.let { Log.e(TAG, it) }
             }
 
@@ -159,21 +190,21 @@ class HomeFragment : Fragment() {
                 val googleAddressResponse = response.body()
 
                 if (googleAddressResponse != null) {
-                    Log.d("GEO 로그", "응답 내용 status: " + googleAddressResponse.status)
                     val addressParts =
                         (googleAddressResponse.results[0].formatted_address).split(" ")
                     val city = addressParts[1]
                     val district = addressParts[2]
                     val dong = addressParts[3]
-                    Log.d(TAG, "split : ${city}, ${district}, ${dong}")
+                    Log.d(TAG, "getKoreanAddress: ${city}, ${district}, ${dong}")
                     homeViewModel.getAddressSuccess(city, district, dong)
                 } else {
-                    Log.d("GEO 로그", "응답 내용 status 가 null입니다")
+                    Log.d(TAG, "getKoreanAddress: 응답 내용 status 가 null입니다")
                 }
             }
 
             override fun onFailure(call: Call<GoogleAddressResponse>, t: Throwable) {
-                Log.e("GEO 로그", "Fail!!")
+                Log.e(TAG, "getKoreanAddress: Failed")
+                t.message?.let { Log.e(TAG, it) }
             }
 
         })

@@ -1,5 +1,30 @@
 package com.dodonehir.findshelter.model
 
+import com.squareup.moshi.Json
+
+data class ShelterResponse(
+    val HeatWaveShelter: List<HeatWaveShelter>
+)
+
+data class HeatWaveShelter(
+    val head: List<Head>,
+    val row: List<Row>
+)
+
+data class Head(
+    @Json(name = "RESULT")
+    val shelterResult: ShelterResult,
+    val numOfRows: String,
+    val pageNo: String,
+    val totalCount: Int,
+    val type: String
+)
+
+data class ShelterResult(
+    val resultCode: String,
+    val resultMsg: String
+)
+
 data class Row(
     val ar: Int,
     val areaCd: String,
@@ -12,10 +37,12 @@ data class Row(
     val creDttm: String,
     val dtlAdres: String,
     val equptype: String,
+    val fclty_ty_nm: String,
     val la: Double,
     val lo: Double,
     val mngdptCd: String,
     val mngdpt_cd: String,
+    val mngdpt_nm: String,
     val operBeginDe: String,
     val operEndDe: String,
     val restSeqNo: String,

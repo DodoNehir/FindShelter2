@@ -3,5 +3,12 @@
     <domain-config cleartextTrafficPermitted="true">
         <domain includeSubdomains="true">192.168.0.144</domain>
         <domain includeSubdomains="true">172.30.81.153</domain>
+<!--        <domain includeSubdomains="true">apis.data.go.kr</domain>-->
     </domain-config>
+    <base-config>
+        <trust-anchors>
+            <certificates src="@raw/gsrsaovsslca2018"/>
+            <certificates src="system"/>
+        </trust-anchors>
+    </base-config>
 </network-security-config>
