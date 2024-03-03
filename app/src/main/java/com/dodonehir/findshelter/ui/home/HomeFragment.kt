@@ -19,6 +19,7 @@ import com.dodonehir.findshelter.R
 import com.dodonehir.findshelter.databinding.FragmentHomeBinding
 import com.dodonehir.findshelter.model.CodeResponse
 import com.dodonehir.findshelter.model.GoogleAddressResponse
+import com.dodonehir.findshelter.model.ShelterInfo
 import com.dodonehir.findshelter.model.ShelterResponse
 import com.dodonehir.findshelter.network.DongCodeApi
 import com.dodonehir.findshelter.network.GMSApi
@@ -29,6 +30,7 @@ import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.SupportMapFragment
 import com.google.android.gms.maps.model.LatLng
+import com.google.android.gms.maps.model.MarkerOptions
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
@@ -78,6 +80,12 @@ class HomeFragment : Fragment() {
             }
         }
 
+        homeViewModel.requestUpdateMap.observe(viewLifecycleOwner) {
+            if (it) {
+                updateMap()
+            }
+        }
+
         // Fragment에 map fragment를 표시
         (childFragmentManager.findFragmentById(R.id.map) as SupportMapFragment).getMapAsync {
             Log.d(TAG, "GoogleMap ready.")
@@ -112,11 +120,26 @@ class HomeFragment : Fragment() {
         _binding = null
     }
 
+    private fun updateMap() {
+        // shelterInfo pin point map에 표시하기
+        homeViewModel.shelterInfoList.forEach {
+            map.addMarker(
+                MarkerOptions()
+                    .position(LatLng(it.la, it.lo))
+                    .title(it.restName)
+            )
+        }
+
+
+        // 다 끝나면
+        homeViewModel.finishedUpdateMap()
+    }
+
     private fun getShelterLocations() {
         val shelterCall = ShelterApi.shelterService.getShelter(
             BuildConfig.SHELTER_ENCODING_KEY,
-            1,
-            5,
+            4,
+            4,
             "json",
             homeViewModel.code.toString(),
             "001"
@@ -129,20 +152,22 @@ class HomeFragment : Fragment() {
             ) {
                 Log.d(TAG, "getShelterLocations: succeed")
                 val shelterPointResponse = response.body()
-                if (shelterPointResponse != null) {
-                    Log.d(
-                        TAG, "total count: " +
-                                shelterPointResponse.HeatWaveShelter[0].head?.get(0)?.totalCount
+                Log.d(
+                    TAG, "total count: " +
+                            shelterPointResponse?.HeatWaveShelter?.get(0)?.head?.get(0)?.totalCount
+                )
+
+                // shelterInfo 저장
+                shelterPointResponse?.HeatWaveShelter?.get(1)?.row?.forEach {
+                    val shelterInfo = ShelterInfo(
+                        it.restname,
+                        it.la,
+                        it.lo
                     )
-                    Log.d(
-                        TAG, "row0 ?: " +
-                                shelterPointResponse.HeatWaveShelter[1].row?.get(0)?.restname
-                    )
-                    Log.d(
-                        TAG, "row1 ?: " +
-                                shelterPointResponse.HeatWaveShelter[1].row?.get(1)?.restname
-                    )
+                    homeViewModel.shelterInfoList.add(shelterInfo)
                 }
+                Log.d(TAG, "shelter Info saved")
+                homeViewModel.requestUpdateMap()
             }
 
             override fun onFailure(call: Call<ShelterResponse>, t: Throwable) {

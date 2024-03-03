@@ -4,6 +4,7 @@ import android.location.Location
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
+import com.dodonehir.findshelter.model.ShelterInfo
 import com.google.android.gms.maps.model.CameraPosition
 
 class HomeViewModel : ViewModel() {
@@ -19,6 +20,11 @@ class HomeViewModel : ViewModel() {
 
     private val _isGetCodeSuccess = MutableLiveData<Boolean>()
     val isGetCodeSuccess: LiveData<Boolean> = _isGetCodeSuccess
+
+
+    val shelterInfoList = mutableListOf<ShelterInfo>()
+    private val _requestUpdateMap = MutableLiveData<Boolean>()
+    val requestUpdateMap: LiveData<Boolean> = _requestUpdateMap
 
     var locationPermissionGranted = false
     var cameraPosition: CameraPosition? = null
@@ -44,5 +50,13 @@ class HomeViewModel : ViewModel() {
     fun getCodeSuccess(code: Long) {
         this.code = code
         _isGetCodeSuccess.value = true
+    }
+
+    fun requestUpdateMap() {
+        _requestUpdateMap.value = true
+    }
+
+    fun finishedUpdateMap() {
+        _requestUpdateMap.value = false
     }
 }
