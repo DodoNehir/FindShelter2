@@ -113,7 +113,7 @@ class HomeFragment : Fragment() {
     }
 
     private fun getShelterLocations() {
-        val shelterCall = ShelterApi.shelterPointService.getShelterPoint(
+        val shelterCall = ShelterApi.shelterService.getShelter(
             BuildConfig.SHELTER_ENCODING_KEY,
             1,
             5,
@@ -131,8 +131,16 @@ class HomeFragment : Fragment() {
                 val shelterPointResponse = response.body()
                 if (shelterPointResponse != null) {
                     Log.d(
-                        TAG,
-                        "shelter totalCount: ${shelterPointResponse.HeatWaveShelter[0].head[0].totalCount}"
+                        TAG, "total count: " +
+                                shelterPointResponse.HeatWaveShelter[0].head?.get(0)?.totalCount
+                    )
+                    Log.d(
+                        TAG, "row0 ?: " +
+                                shelterPointResponse.HeatWaveShelter[1].row?.get(0)?.restname
+                    )
+                    Log.d(
+                        TAG, "row1 ?: " +
+                                shelterPointResponse.HeatWaveShelter[1].row?.get(1)?.restname
                     )
                 }
             }

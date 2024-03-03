@@ -30,9 +30,9 @@ private val retrofit = Retrofit.Builder()
     .build()
 
 
-interface ShelterPointService {
+interface ShelterService {
     @GET("getHeatWaveShelterList3")
-    fun getShelterPoint(
+    fun getShelter(
         @Query("ServiceKey") key: String,
         @Query("pageNo") pageNo: Int = 1,
         @Query("numOfRows") numOfRows: Int = 10,
@@ -52,7 +52,7 @@ interface ShelterPointService {
 }
 
 object ShelterApi {
-    val shelterPointService: ShelterPointService by lazy {
-        retrofit.create(ShelterPointService::class.java)
+    val shelterService: ShelterService by lazy {
+        retrofit.create(ShelterService::class.java)
     }
 }

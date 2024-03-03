@@ -1,30 +1,40 @@
 package com.dodonehir.findshelter.model
 
 import com.squareup.moshi.Json
+import com.squareup.moshi.JsonClass
 
+@JsonClass(generateAdapter = true)
 data class ShelterResponse(
     val HeatWaveShelter: List<HeatWaveShelter>
 )
 
+@JsonClass(generateAdapter = true)
 data class HeatWaveShelter(
-    val head: List<Head>,
-    val row: List<Row>
+    val head: List<Head>?,
+    val row: List<Row>?
 )
 
+@JsonClass(generateAdapter = true)
 data class Head(
+    @Json(name = "totalCount")
+    val totalCount: Int?,
+    @Json(name = "numOfRows")
+    val numOfRows: String?,
+    @Json(name = "pageNo")
+    val pageNo: String?,
+    @Json(name = "type")
+    val type: String?,
     @Json(name = "RESULT")
-    val shelterResult: ShelterResult,
-    val numOfRows: String,
-    val pageNo: String,
-    val totalCount: Int,
-    val type: String
+    val shelterResult: ShelterResult?
 )
 
+@JsonClass(generateAdapter = true)
 data class ShelterResult(
     val resultCode: String,
     val resultMsg: String
 )
 
+@JsonClass(generateAdapter = true)
 data class Row(
     val ar: Int,
     val areaCd: String,
