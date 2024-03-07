@@ -31,6 +31,7 @@ import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.SupportMapFragment
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.MarkerOptions
+import com.google.android.material.snackbar.Snackbar
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
@@ -147,7 +148,7 @@ class HomeFragment : Fragment() {
             3,
             "json",
             homeViewModel.code.toString(),
-            "001"
+            "010"
         )
 
         shelterCall.enqueue(object : Callback<ShelterResponse> {
@@ -169,21 +170,26 @@ class HomeFragment : Fragment() {
                         }
                     }
                 }
-                // shelterInfo 저장
-                shelterPointResponse?.HeatWaveShelter?.get(1)?.row?.forEach {
-                    val shelterInfo = ShelterInfo(
-                        it.restname,
-                        it.la,
-                        it.lo
-                    )
-                    homeViewModel.shelterInfoList.add(shelterInfo)
-                }
-                Log.d(TAG, "3 shelter info saved")
-                if (pageNumber < pageLoop) {
-                    pageNumber++
-                    getShelterLocations()
+                // totalCount가 null이 아닐 때 shelterInfo 저장
+                if (totalCount != null) {
+                    shelterPointResponse?.HeatWaveShelter?.get(1)?.row?.forEach {
+                        val shelterInfo = ShelterInfo(
+                            it.restname,
+                            it.la,
+                            it.lo
+                        )
+                        homeViewModel.shelterInfoList.add(shelterInfo)
+                    }
+                    Log.d(TAG, "3 shelter info saved")
+                    if (pageNumber < pageLoop) {
+                        pageNumber++
+                        getShelterLocations()
+                    } else {
+                        homeViewModel.requestUpdateMap()
+                    }
                 } else {
-                    homeViewModel.requestUpdateMap()
+                    // resultMsg에 데이터없음 에러 라고 올 때
+                    Snackbar.make(binding.root.rootView, "검색 결과가 없습니다.", Snackbar.LENGTH_LONG)
                 }
             }
 
