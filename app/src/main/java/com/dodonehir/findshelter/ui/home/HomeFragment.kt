@@ -19,14 +19,18 @@ import com.dodonehir.findshelter.R
 import com.dodonehir.findshelter.databinding.FragmentHomeBinding
 import com.dodonehir.findshelter.model.CodeResponse
 import com.dodonehir.findshelter.model.GoogleAddressResponse
+import com.dodonehir.findshelter.model.ShelterInfo
+import com.dodonehir.findshelter.model.ShelterResponse
 import com.dodonehir.findshelter.network.DongCodeApi
 import com.dodonehir.findshelter.network.GMSApi
+import com.dodonehir.findshelter.network.ShelterApi
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.SupportMapFragment
 import com.google.android.gms.maps.model.LatLng
+import com.google.android.gms.maps.model.MarkerOptions
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
@@ -45,6 +49,9 @@ class HomeFragment : Fragment() {
     private lateinit var map: GoogleMap
     private val defaultLocation_GwanghwamunSquare = LatLng(37.575939, 126.976856)
     lateinit var lastKnownLocation: Location
+    private var totalCount: Int? = null
+    private var pageNumber = 1
+    private var pageLoop = 1
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -73,6 +80,13 @@ class HomeFragment : Fragment() {
         homeViewModel.isGetCodeSuccess.observe(viewLifecycleOwner) {
             if (it) {
                 getShelterLocations()
+            }
+        }
+
+        homeViewModel.requestUpdateMap.observe(viewLifecycleOwner) {
+            if (it) {
+                Log.d(TAG, "Update map")
+                updateMap()
             }
         }
 
@@ -110,8 +124,75 @@ class HomeFragment : Fragment() {
         _binding = null
     }
 
-    private fun getShelterLocations() {
+    private fun updateMap() {
+        // shelterInfo pin point map에 표시하기
+        homeViewModel.shelterInfoList.forEach {
+            map.addMarker(
+                MarkerOptions()
+                    .position(LatLng(it.la, it.lo))
+                    .title(it.restName)
+            )
+        }
 
+        // 다 끝나면 viewmodel의 update indicator, pageNumber, pageLoop를 initialize
+        homeViewModel.finishedUpdateMap()
+        pageNumber = 1
+        pageLoop = 1
+    }
+
+    private fun getShelterLocations() {
+        val shelterCall = ShelterApi.shelterService.getShelter(
+            BuildConfig.SHELTER_ENCODING_KEY,
+            pageNumber,
+            3,
+            "json",
+            homeViewModel.code.toString(),
+            "001"
+        )
+
+        shelterCall.enqueue(object : Callback<ShelterResponse> {
+            override fun onResponse(
+                call: Call<ShelterResponse>,
+                response: Response<ShelterResponse>
+            ) {
+                Log.d(TAG, "getShelterLocations: succeed")
+                val shelterPointResponse = response.body()
+                if (pageNumber == 1) {
+                    // 가장 처음 request할 때 total count를 저장하고, loop를 계산한다.
+                    totalCount =
+                        shelterPointResponse?.HeatWaveShelter?.get(0)?.head?.get(0)?.totalCount
+                    Log.d(TAG, "total count: $totalCount")
+                    if (totalCount != null) {
+                        pageLoop = totalCount!! / 3
+                        if (totalCount!! % 3 != 0) {
+                            pageLoop += 1
+                        }
+                    }
+                }
+                // shelterInfo 저장
+                shelterPointResponse?.HeatWaveShelter?.get(1)?.row?.forEach {
+                    val shelterInfo = ShelterInfo(
+                        it.restname,
+                        it.la,
+                        it.lo
+                    )
+                    homeViewModel.shelterInfoList.add(shelterInfo)
+                }
+                Log.d(TAG, "3 shelter info saved")
+                if (pageNumber < pageLoop) {
+                    pageNumber++
+                    getShelterLocations()
+                } else {
+                    homeViewModel.requestUpdateMap()
+                }
+            }
+
+            override fun onFailure(call: Call<ShelterResponse>, t: Throwable) {
+                Log.e(TAG, "getShelterLocations: failed")
+                t.message?.let { Log.e(TAG, it) }
+            }
+
+        })
     }
 
     private fun getCode() {
@@ -126,16 +207,16 @@ class HomeFragment : Fragment() {
                 call: Call<List<CodeResponse>>,
                 response: Response<List<CodeResponse>>
             ) {
-                Log.d(TAG, "getCode succeed")
                 val codeResponse = response.body()
                 val code = codeResponse?.get(0)?.code
                 if (code != null) {
+                    Log.d(TAG, "getCode: $code")
                     homeViewModel.getCodeSuccess(code)
                 }
             }
 
             override fun onFailure(call: Call<List<CodeResponse>>, t: Throwable) {
-                Log.e(TAG, "getCode failed")
+                Log.e(TAG, "getCode: failed")
                 t.message?.let { Log.e(TAG, it) }
             }
 
@@ -159,21 +240,21 @@ class HomeFragment : Fragment() {
                 val googleAddressResponse = response.body()
 
                 if (googleAddressResponse != null) {
-                    Log.d("GEO 로그", "응답 내용 status: " + googleAddressResponse.status)
                     val addressParts =
                         (googleAddressResponse.results[0].formatted_address).split(" ")
                     val city = addressParts[1]
                     val district = addressParts[2]
                     val dong = addressParts[3]
-                    Log.d(TAG, "split : ${city}, ${district}, ${dong}")
+                    Log.d(TAG, "getKoreanAddress: ${city}, ${district}, ${dong}")
                     homeViewModel.getAddressSuccess(city, district, dong)
                 } else {
-                    Log.d("GEO 로그", "응답 내용 status 가 null입니다")
+                    Log.d(TAG, "getKoreanAddress: 응답 내용 status 가 null입니다")
                 }
             }
 
             override fun onFailure(call: Call<GoogleAddressResponse>, t: Throwable) {
-                Log.e("GEO 로그", "Fail!!")
+                Log.e(TAG, "getKoreanAddress: Failed")
+                t.message?.let { Log.e(TAG, it) }
             }
 
         })
