@@ -49,6 +49,9 @@ class HomeFragment : Fragment() {
     private lateinit var map: GoogleMap
     private val defaultLocation_GwanghwamunSquare = LatLng(37.575939, 126.976856)
     lateinit var lastKnownLocation: Location
+    private var totalCount: Int? = null
+    private var pageNumber = 1
+    private var pageLoop = 1
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -82,6 +85,7 @@ class HomeFragment : Fragment() {
 
         homeViewModel.requestUpdateMap.observe(viewLifecycleOwner) {
             if (it) {
+                Log.d(TAG, "Update map")
                 updateMap()
             }
         }
@@ -130,16 +134,17 @@ class HomeFragment : Fragment() {
             )
         }
 
-
-        // 다 끝나면
+        // 다 끝나면 viewmodel의 update indicator, pageNumber, pageLoop를 initialize
         homeViewModel.finishedUpdateMap()
+        pageNumber = 1
+        pageLoop = 1
     }
 
     private fun getShelterLocations() {
         val shelterCall = ShelterApi.shelterService.getShelter(
             BuildConfig.SHELTER_ENCODING_KEY,
-            4,
-            4,
+            pageNumber,
+            3,
             "json",
             homeViewModel.code.toString(),
             "001"
@@ -152,11 +157,18 @@ class HomeFragment : Fragment() {
             ) {
                 Log.d(TAG, "getShelterLocations: succeed")
                 val shelterPointResponse = response.body()
-                Log.d(
-                    TAG, "total count: " +
-                            shelterPointResponse?.HeatWaveShelter?.get(0)?.head?.get(0)?.totalCount
-                )
-
+                if (pageNumber == 1) {
+                    // 가장 처음 request할 때 total count를 저장하고, loop를 계산한다.
+                    totalCount =
+                        shelterPointResponse?.HeatWaveShelter?.get(0)?.head?.get(0)?.totalCount
+                    Log.d(TAG, "total count: $totalCount")
+                    if (totalCount != null) {
+                        pageLoop = totalCount!! / 3
+                        if (totalCount!! % 3 != 0) {
+                            pageLoop += 1
+                        }
+                    }
+                }
                 // shelterInfo 저장
                 shelterPointResponse?.HeatWaveShelter?.get(1)?.row?.forEach {
                     val shelterInfo = ShelterInfo(
@@ -166,8 +178,13 @@ class HomeFragment : Fragment() {
                     )
                     homeViewModel.shelterInfoList.add(shelterInfo)
                 }
-                Log.d(TAG, "shelter Info saved")
-                homeViewModel.requestUpdateMap()
+                Log.d(TAG, "3 shelter info saved")
+                if (pageNumber < pageLoop) {
+                    pageNumber++
+                    getShelterLocations()
+                } else {
+                    homeViewModel.requestUpdateMap()
+                }
             }
 
             override fun onFailure(call: Call<ShelterResponse>, t: Throwable) {

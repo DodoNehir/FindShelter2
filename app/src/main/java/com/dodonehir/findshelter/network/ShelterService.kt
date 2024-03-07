@@ -1,8 +1,10 @@
 package com.dodonehir.findshelter.network
 
+import android.content.Context
 import com.dodonehir.findshelter.model.ShelterResponse
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
+import okhttp3.Cache
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Call
@@ -22,6 +24,8 @@ private val interceptor = HttpLoggingInterceptor().apply {
     level = HttpLoggingInterceptor.Level.BODY
 }
 private val client = OkHttpClient.Builder().addInterceptor(interceptor).build()
+
+//private val cache = Cache(Context.cacheDir, 1024)
 
 private val retrofit = Retrofit.Builder()
     .addConverterFactory(MoshiConverterFactory.create(moshi))
