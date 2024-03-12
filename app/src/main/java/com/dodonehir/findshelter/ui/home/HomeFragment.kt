@@ -12,8 +12,10 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.lifecycleScope
 import com.dodonehir.findshelter.BuildConfig
 import com.dodonehir.findshelter.R
 import com.dodonehir.findshelter.databinding.FragmentHomeBinding
@@ -24,6 +26,7 @@ import com.dodonehir.findshelter.model.ShelterResponse
 import com.dodonehir.findshelter.network.DongCodeApi
 import com.dodonehir.findshelter.network.GMSApi
 import com.dodonehir.findshelter.network.ShelterApi
+import com.dodonehir.findshelter.ui.settings.dataStore
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.maps.CameraUpdateFactory
@@ -32,9 +35,13 @@ import com.google.android.gms.maps.SupportMapFragment
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.MarkerOptions
 import com.google.android.material.snackbar.Snackbar
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
+import java.io.IOException
 
 class HomeFragment : Fragment() {
 
@@ -53,6 +60,7 @@ class HomeFragment : Fragment() {
     private var totalCount: Int? = null
     private var pageNumber = 1
     private var pageLoop = 1
+    private var equptype = "001"
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -66,6 +74,19 @@ class HomeFragment : Fragment() {
         val root: View = binding.root
 
 //        val textView: TextView = binding.textHome
+
+
+        val EQUPTYPE = stringPreferencesKey("equptype")
+        viewLifecycleOwner.lifecycleScope.launch {
+            try {
+                equptype = requireContext().dataStore.data.first()[EQUPTYPE].toString()
+                Log.d(TAG, "saved equptype: $equptype ")
+            } catch (e: IOException) {
+                Log.e(TAG, "IOException occurred: ${e.message}")
+            }
+        }
+
+
         homeViewModel.isLocationInitialized.observe(viewLifecycleOwner) { initialized ->
             if (initialized) {
                 getKoreanAddress()
@@ -148,7 +169,7 @@ class HomeFragment : Fragment() {
             3,
             "json",
             homeViewModel.code.toString(),
-            "010"
+            equptype
         )
 
         shelterCall.enqueue(object : Callback<ShelterResponse> {

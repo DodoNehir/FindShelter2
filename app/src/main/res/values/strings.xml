@@ -19,4 +19,21 @@
     <string name="permission_rationale_location">내 위치를 지도에 표시하기 위해 위치 권한이 필요합니다.\n기기 위치 사용을 허용해주세요</string>
     <string name="location_permission_denied">앱을 다시 실행해서 위치 권한을 부여해주세요.\n또는 폰 설정 &gt; 앱 &gt; \'무더위 쉼터\'로 들어가서 권한을 부여할 수 있습니다.</string>
     <string name="permission_required_toast">앱 실행을 위해 위치 권한이 필요합니다.</string>
+
+    <!-- Settings Buttons -->
+    <string name="settings_button1">노인시설</string>
+    <string name="settings_button2">복지회관</string>
+    <string name="settings_button3">마을회관</string>
+    <string name="settings_button4">보건소</string>
+    <string name="settings_button5">주민센터</string>
+    <string name="settings_button6">면동사무소</string>
+    <string name="settings_button7">종교시설</string>
+    <string name="settings_button8">금융기관</string>
+    <string name="settings_button9">정자</string>
+    <string name="settings_button10">공원</string>
+    <string name="settings_button11">정자, 파고라</string>
+    <string name="settings_button12">공원</string>
+    <string name="settings_button13">교량하부</string>
+    <string name="settings_button14">나무그늘</string>
+    <string name="settings_button15">하천둔치</string>
 </resources>
