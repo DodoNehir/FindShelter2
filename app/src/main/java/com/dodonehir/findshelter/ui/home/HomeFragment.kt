@@ -16,9 +16,11 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
+import androidx.room.Room
 import com.dodonehir.findshelter.BuildConfig
 import com.dodonehir.findshelter.R
 import com.dodonehir.findshelter.databinding.FragmentHomeBinding
+import com.dodonehir.findshelter.db.AppDatabase
 import com.dodonehir.findshelter.model.CodeResponse
 import com.dodonehir.findshelter.model.GoogleAddressResponse
 import com.dodonehir.findshelter.model.ShelterInfo
@@ -73,7 +75,14 @@ class HomeFragment : Fragment() {
         _binding = FragmentHomeBinding.inflate(inflater, container, false)
         val root: View = binding.root
 
-//        val textView: TextView = binding.textHome
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            // TODO 확인하기!
+            var total =
+                AppDatabase.getInstance(requireContext()).locationDao().getTotalCount("1111", "005")
+            Log.e(TAG, "DB: getTotalCount: $total")
+
+        }
 
 
         val EQUPTYPE = stringPreferencesKey("equptype")
