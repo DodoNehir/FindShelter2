@@ -22,38 +22,81 @@
 
 </br>
 
-## 4. 사용 방법
-![캡처](https://github.com/DodoNehir/findshelter/assets/46012435/6e9730b9-0956-4b35-b86f-1f372cefdc22)
-- 먼저 위,경도를 확인 후 그 정보로부터 주소를 찾습니다. 그 주소를 이용해서 지역코드를 찾고, 지역코드를 이용해서 쉼터위치를 찾는 순으로 진행됩니다.
+## 4. 구현 방법
+- 지도 화면은 HomeFragment에서 표시하고 쉼터 종류는 SettingsFragment에서 선택합니다.
 </br>
 
-- GeoRequest() 와 sherlterPointRequest()는 Retrofit을 사용합니다. interface와 응답받을 데이터 형식인 GoogleAddressResponse data class를 생성합니다. 그 후 Call 객체를 생성하고 GET통신의 결과를 addressInfo에 저장해 사용합니다.
+- 앱을 실행하면 처음에는 위치 정보(위도, 경도)를 가져오려 시도합니다.
+  위치 확인이 되면 HomeViewModel 클래스에 있는 isLocationInitialized 값을 true로 바꿉니다.
+  그리고 이 값을 관찰하고 있는 관찰자는 true가 된 것을 보고 getKoreanAddress()라는 다음 스탭에 필요한 메서드를 실행시킵니다.
+  이런 방식으로 각 api가 값을 받아오는 것을 확인 후 다음 메서드를 진행시킵니다.
+  아래 코드는 맨 처음 isLocationInitialized 가 true 될 때 observe 하고 있는 코드입니다.
+</br>
 ```
+        homeViewModel.isLocationInitialized.observe(viewLifecycleOwner) { initialized ->
+            if (initialized) {
+                getKoreanAddress()
+            }
+        }
+```
+
+</br>
+
+- getKoreanAddress() 는 HTTP 통신으로 주소를 받아오는 메서드입니다.
+  통신에는 Retrofit을 사용하고 Deserialize에는 Moshi 컨버터를 사용하였습니다.
+  Retrofit 객체 생성에는 비용이 비싸다고 해서 싱글톤으로 사용하도록 했습니다.
+  아래는 그 구현 내용입니다. 결과로 받아오는 GoogleAddressResponse는 json 형식대로 작성된 Data Class 입니다.
+
+```
+private val retrofit = Retrofit.Builder()
+    .addConverterFactory(MoshiConverterFactory.create(moshi))
+    .baseUrl(BASE_URL)
+    .client(client)
+    .build()
+
 interface GeoService {
     @GET("maps/api/geocode/json")
-    fun getResults(    ): Call<GoogleAddressResponse>
+    fun getResults(
+        @Query("latlng") latlng: String,
+        @Query("key") API_KEY: String,
+        @Query("language") language: String, // ko
+        @Query("result_type") resultType: String, // street_address
+    ): Call<GoogleAddressResponse>
 }
 
-geoCall = geoService.getResults(     )
-geoCall.enqueue(object : Callback<GoogleAddressResponse> {
-                    override fun onResponse( ) {
-                        val addressInfo = response.body()
-                    }
-})
-```
+object GMSApi {
 
+    val geoService: GeoService by lazy {
+        retrofit.create(GeoService::class.java)
+    }
+
+}
+```
 </br>
 
-- areaCodeRequest() 는 DOM 방식으로 파싱합니다. 그래서 XML 전체를 받은 후 region_cd 태그의 값을 가져와서 사용합니다.
-
+- SettingsFragment에서는 쉼터 종류를 하나 선택할 수 있습니다.
+  여기서 선택된 값은 간단하기 때문에 Preferences Datastore를 사용하여 저장했습니다.
 ```
-val xml: Document = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(url)
+/* SettingsFragment 최상단에 선언 */
+    val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
 
-val list: NodeList = xml.getElementsByTagName("region_cd")
-val n: Node = list.item(0)
-myAreaCode = n.textContent
+/* SettingsViewModel 에서 값을 쓸 수 있도록 제공한 메서드 */
+    val EQUPTYPE = stringPreferencesKey("equptype")
+    fun updateEquptype(context: Context, selectedEquptype: String) {
+        viewModelScope.launch {
+            context.dataStore.edit { settings ->
+                settings[EQUPTYPE] = selectedEquptype
+            }
+        }
+    }
+
+/* 값 읽기 */
+    val EQUPTYPE = stringPreferencesKey("equptype")
+    viewLifecycleOwner.lifecycleScope.launch {
+        equptype = requireContext().dataStore.data.first()[EQUPTYPE].toString()
+    }
 ```
-
+  
 </br>
 
 ## 5. 주요 문제점과 해결법 & 개선점
