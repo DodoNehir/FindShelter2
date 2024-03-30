@@ -14,11 +14,15 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import com.dodonehir.findshelter.BuildConfig
 import com.dodonehir.findshelter.R
 import com.dodonehir.findshelter.databinding.FragmentHomeBinding
+import com.dodonehir.findshelter.db.AppDatabase
+import com.dodonehir.findshelter.db.LocationData
+import com.dodonehir.findshelter.db.LocationViewModel
 import com.dodonehir.findshelter.model.CodeResponse
 import com.dodonehir.findshelter.model.GoogleAddressResponse
 import com.dodonehir.findshelter.model.ShelterInfo
@@ -35,9 +39,10 @@ import com.google.android.gms.maps.SupportMapFragment
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.MarkerOptions
 import com.google.android.material.snackbar.Snackbar
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
@@ -54,28 +59,49 @@ class HomeFragment : Fragment() {
     private val TAG = javaClass.name
     private lateinit var fusedLocationProviderClient: FusedLocationProviderClient
     private lateinit var homeViewModel: HomeViewModel
+    private lateinit var locationViewModel: LocationViewModel
     private lateinit var map: GoogleMap
     private val defaultLocation_GwanghwamunSquare = LatLng(37.575939, 126.976856)
     lateinit var lastKnownLocation: Location
     private var totalCount: Int? = null
+    private var numOfRows = 2
     private var pageNumber = 1
     private var pageLoop = 1
     private var equptype = "001"
+    private var areaCode = "1111"
+    private var locationId = 0
 
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        homeViewModel =
-            ViewModelProvider(this).get(HomeViewModel::class.java)
-
+        homeViewModel = ViewModelProvider(this).get(HomeViewModel::class.java)
+        locationViewModel = ViewModelProvider(this).get(LocationViewModel::class.java)
         _binding = FragmentHomeBinding.inflate(inflater, container, false)
-        val root: View = binding.root
 
-//        val textView: TextView = binding.textHome
+        // 기기의 현재 위치 검색을 위함
+        fusedLocationProviderClient =
+            LocationServices.getFusedLocationProviderClient(requireContext())
+
+        // 위치 정보 엑세스 권한 허용 또는 거부 기회 제공
+        getLocationPermission()
+
+        // HomeFragment 위에 map fragment 표시
+        (childFragmentManager.findFragmentById(R.id.map) as SupportMapFragment).getMapAsync {
+            Log.d(TAG, "GoogleMap ready.")
+            map = it
+            updateLocationUI()
+            getDeviceLocation()
+        }
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            // TODO: coroutine 필요하면 여기다가 쓰자
+
+        }
 
 
+        // dataStore에 저장된 설정값 가져오기
         val EQUPTYPE = stringPreferencesKey("equptype")
         viewLifecycleOwner.lifecycleScope.launch {
             try {
@@ -87,18 +113,21 @@ class HomeFragment : Fragment() {
         }
 
 
+        // 지도 initialize 확인
         homeViewModel.isLocationInitialized.observe(viewLifecycleOwner) { initialized ->
             if (initialized) {
                 getKoreanAddress()
             }
         }
 
+        // 현위치 한글 주소 확인
         homeViewModel.isGetAddressSuccess.observe(viewLifecycleOwner) { success ->
             if (success) {
                 getCode()
             }
         }
 
+        // 현위치 동코드 확인
         homeViewModel.isGetCodeSuccess.observe(viewLifecycleOwner) {
             if (it) {
                 getShelterLocations()
@@ -112,22 +141,9 @@ class HomeFragment : Fragment() {
             }
         }
 
-        // Fragment에 map fragment를 표시
-        (childFragmentManager.findFragmentById(R.id.map) as SupportMapFragment).getMapAsync {
-            Log.d(TAG, "GoogleMap ready.")
-            map = it
-            updateLocationUI()
-            getDeviceLocation()
-        }
 
-        // 기기의 현재 위치 검색을 위함
-        fusedLocationProviderClient =
-            LocationServices.getFusedLocationProviderClient(requireContext())
 
-        // 위치 정보 엑세스 권한 허용 또는 거부 기회 제공
-        getLocationPermission()
-
-        return root
+        return binding.root
     }
 
     override fun onDetach() {
@@ -163,10 +179,37 @@ class HomeFragment : Fragment() {
     }
 
     private fun getShelterLocations() {
+        //  equptype은 dataStore에서 가져온 상태이고
+        //  areaCode는 homeViewModel에 저장된 상태임
+        areaCode = homeViewModel.code.toString()
+
+        lifecycleScope.launch(Dispatchers.IO) {
+            locationId = locationViewModel.getId(areaCode, equptype)
+            if (locationId == 0) {
+                Log.d(TAG, "location Id doesn't exist.")
+                callShelterRequest()
+            } else {
+                Log.d(TAG, "location Id is $locationId")
+                getLocationFromDB()
+            }
+        }
+
+    }
+
+    private fun getLocationFromDB() {
+        Log.d(TAG, "===== Get Location Data from DB =====")
+        locationViewModel.getLocationData(locationId).forEach {
+            Log.d(TAG, "restname: ${it.restname}")
+        }
+        Log.d(TAG, "=====================================")
+    }
+
+    private fun callShelterRequest() {
+        // timeout 때문에 3개만 요청
         val shelterCall = ShelterApi.shelterService.getShelter(
             BuildConfig.SHELTER_ENCODING_KEY,
             pageNumber,
-            3,
+            numOfRows,
             "json",
             homeViewModel.code.toString(),
             equptype
@@ -177,45 +220,79 @@ class HomeFragment : Fragment() {
                 call: Call<ShelterResponse>,
                 response: Response<ShelterResponse>
             ) {
-                Log.d(TAG, "getShelterLocations: succeed")
+
                 val shelterPointResponse = response.body()
-                if (pageNumber == 1) {
-                    // 가장 처음 request할 때 total count를 저장하고, loop를 계산한다.
-                    totalCount =
-                        shelterPointResponse?.HeatWaveShelter?.get(0)?.head?.get(0)?.totalCount
-                    Log.d(TAG, "total count: $totalCount")
-                    if (totalCount != null) {
-                        pageLoop = totalCount!! / 3
-                        if (totalCount!! % 3 != 0) {
-                            pageLoop += 1
+
+                lifecycleScope.launch(Dispatchers.IO) {
+                    // 가장 처음 request할 때 totalCount를 저장하고, loop를 계산한다.
+                    if (pageNumber == 1) {
+                        totalCount =
+                            shelterPointResponse?.HeatWaveShelter?.get(0)?.head?.get(0)?.totalCount
+                        Log.d(TAG, "Call request shelter succeed. total count: $totalCount")
+                        if (totalCount != null) {
+
+                            // db에 location 객체를 넣는다
+                            val location =
+                                com.dodonehir.findshelter.db.Location(
+                                    areaCode,
+                                    equptype,
+                                    totalCount!!
+                                )
+                            // insert 한 후에 getId로 id 값을 확인한다
+                            locationViewModel.insertLocation(location)
+
+                            locationId = locationViewModel.getId(areaCode, equptype)
+                            Log.d(TAG, "Insesrt new locationID. The value is $locationId")
+
+                            pageLoop = totalCount!! / 3
+                            if (totalCount!! % 3 != 0) {
+                                pageLoop += 1
+                            }
                         }
                     }
-                }
-                // totalCount가 null이 아닐 때 shelterInfo 저장
-                if (totalCount != null) {
-                    shelterPointResponse?.HeatWaveShelter?.get(1)?.row?.forEach {
-                        val shelterInfo = ShelterInfo(
-                            it.restname,
-                            it.la,
-                            it.lo
-                        )
-                        homeViewModel.shelterInfoList.add(shelterInfo)
-                    }
-                    Log.d(TAG, "3 shelter info saved")
-                    if (pageNumber < pageLoop) {
-                        pageNumber++
-                        getShelterLocations()
+
+                    // totalCount가 null이 아닐 때 shelterInfo 저장
+                    if (totalCount != null) {
+                        shelterPointResponse?.HeatWaveShelter?.get(1)?.row?.forEach {
+                            // la, lo 값이 0.0으로 들어올 때는 저장하지 않고
+                            // 이름, la, lo가 모두 동일한 경우에도 중복해서 저장되지 않음(스키마)
+                            if (locationId != 0 && it.la != 0.0) {
+                                Log.d(TAG, "Insert one LocationData")
+                                val locationData =
+                                    LocationData(it.restname, it.la, it.lo, locationId)
+                                locationViewModel.insertLocationData(locationData)
+                            }
+                        }
+                        if (pageNumber < pageLoop) {
+                            Log.d(TAG, "progress $pageNumber/$pageLoop")
+                            pageNumber++
+                            // 다시 request
+                            callShelterRequest()
+                        } else {
+                            // request 반복 끝냄
+                            Log.d(TAG, "Finish call request shelter")
+                            // TODO 끝낸 뒤에 update map 요청 하지 말고
+                            //  db를 한 번 보자.
+//                        homeViewModel.requestUpdateMap()
+
+                        }
                     } else {
-                        homeViewModel.requestUpdateMap()
+                        // resultMsg에 데이터없음 에러 라고 올 때
+                        // TODO 데이터 없을 때도 없다고 저장하자. 매번 요청하게 된다..
+                        Log.d(TAG, "데이터 없음")
+                        withContext(Dispatchers.Main) {
+                            Snackbar.make(
+                                binding.root.rootView,
+                                "검색 결과가 없습니다.",
+                                Snackbar.LENGTH_LONG
+                            )
+                        }
                     }
-                } else {
-                    // resultMsg에 데이터없음 에러 라고 올 때
-                    Snackbar.make(binding.root.rootView, "검색 결과가 없습니다.", Snackbar.LENGTH_LONG)
                 }
             }
 
             override fun onFailure(call: Call<ShelterResponse>, t: Throwable) {
-                Log.e(TAG, "getShelterLocations: failed")
+                Log.e(TAG, "callShelterRequest failed")
                 t.message?.let { Log.e(TAG, it) }
             }
 
