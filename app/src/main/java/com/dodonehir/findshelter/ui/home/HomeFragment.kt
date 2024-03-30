@@ -42,6 +42,7 @@ import com.google.android.material.snackbar.Snackbar
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
@@ -63,6 +64,7 @@ class HomeFragment : Fragment() {
     private val defaultLocation_GwanghwamunSquare = LatLng(37.575939, 126.976856)
     lateinit var lastKnownLocation: Location
     private var totalCount: Int? = null
+    private var numOfRows = 2
     private var pageNumber = 1
     private var pageLoop = 1
     private var equptype = "001"
@@ -207,7 +209,7 @@ class HomeFragment : Fragment() {
         val shelterCall = ShelterApi.shelterService.getShelter(
             BuildConfig.SHELTER_ENCODING_KEY,
             pageNumber,
-            3,
+            numOfRows,
             "json",
             homeViewModel.code.toString(),
             equptype
@@ -218,10 +220,10 @@ class HomeFragment : Fragment() {
                 call: Call<ShelterResponse>,
                 response: Response<ShelterResponse>
             ) {
+
+                val shelterPointResponse = response.body()
+
                 lifecycleScope.launch(Dispatchers.IO) {
-
-                    val shelterPointResponse = response.body()
-
                     // 가장 처음 request할 때 totalCount를 저장하고, loop를 계산한다.
                     if (pageNumber == 1) {
                         totalCount =
@@ -252,8 +254,9 @@ class HomeFragment : Fragment() {
                     // totalCount가 null이 아닐 때 shelterInfo 저장
                     if (totalCount != null) {
                         shelterPointResponse?.HeatWaveShelter?.get(1)?.row?.forEach {
-                            // homeViewModel에 저장하는 대신에 db에 저장하도록 변경
-                            if (locationId != 0) {
+                            // la, lo 값이 0.0으로 들어올 때는 저장하지 않고
+                            // 이름, la, lo가 모두 동일한 경우에도 중복해서 저장되지 않음(스키마)
+                            if (locationId != 0 && it.la != 0.0) {
                                 Log.d(TAG, "Insert one LocationData")
                                 val locationData =
                                     LocationData(it.restname, it.la, it.lo, locationId)
@@ -275,13 +278,21 @@ class HomeFragment : Fragment() {
                         }
                     } else {
                         // resultMsg에 데이터없음 에러 라고 올 때
-                        Snackbar.make(binding.root.rootView, "검색 결과가 없습니다.", Snackbar.LENGTH_LONG)
+                        // TODO 데이터 없을 때도 없다고 저장하자. 매번 요청하게 된다..
+                        Log.d(TAG, "데이터 없음")
+                        withContext(Dispatchers.Main) {
+                            Snackbar.make(
+                                binding.root.rootView,
+                                "검색 결과가 없습니다.",
+                                Snackbar.LENGTH_LONG
+                            )
+                        }
                     }
                 }
             }
 
             override fun onFailure(call: Call<ShelterResponse>, t: Throwable) {
-                Log.e(TAG, "getShelterLocations: failed")
+                Log.e(TAG, "callShelterRequest failed")
                 t.message?.let { Log.e(TAG, it) }
             }
 

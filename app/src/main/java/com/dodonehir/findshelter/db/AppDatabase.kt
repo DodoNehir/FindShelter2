@@ -1,11 +1,17 @@
 package com.dodonehir.findshelter.db
 
 import android.content.Context
+import androidx.room.AutoMigration
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 
-@Database(entities = [Location::class, LocationData::class], version = 1)
+@Database(
+    entities = [Location::class, LocationData::class],
+    exportSchema = true,
+    version = 2,
+    autoMigrations = [AutoMigration(from = 1, to = 2)]
+)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun locationDao(): LocationDao
     abstract fun locationDataDao(): LocationDataDao

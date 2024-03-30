@@ -23,6 +23,9 @@ android {
         buildConfigField("String", "SHELTER_ENCODING_KEY",
             gradleLocalProperties(rootDir).getProperty("SHELTER_ENCODING_KEY")
         )
+        ksp {
+            arg("room.schemaLocation", "$projectDir/schemas")
+        }
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
