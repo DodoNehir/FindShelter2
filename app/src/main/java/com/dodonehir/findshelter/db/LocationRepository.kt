@@ -1,7 +1,6 @@
 package com.dodonehir.findshelter.db
 
 import android.app.Application
-import androidx.lifecycle.LiveData
 
 class LocationRepository(application: Application) {
     private val locationDao: LocationDao
@@ -16,9 +15,9 @@ class LocationRepository(application: Application) {
 
     // db에 있는 지 없는 지 확인할 수 있는 검색.
     // 없으면 0 반환
-    fun getId(areacode: String, equptype: String): Int {
+    fun getLocation(areacode: String, equptype: String): Location? {
         val location = locationDao.getLocation(areacode, equptype)
-        return location?.id ?: 0
+        return location
     }
 
     // 없을 때는 location insert
@@ -30,6 +29,11 @@ class LocationRepository(application: Application) {
     // 없으면 빈 리스트 반환
     fun getLocationData(locationId: Int): List<LocationData> {
         return locationDataDao.getAll(locationId)
+    }
+
+    // data insert 전에 있는 지 확인
+    fun isExistData(locationId: Int, restName: String): Boolean {
+        return locationDataDao.isExistData(locationId, restName)
     }
 
     // id 없을 때는 location data 추가하기

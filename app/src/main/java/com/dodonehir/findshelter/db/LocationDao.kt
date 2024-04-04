@@ -21,6 +21,9 @@ interface LocationDataDao {
     @Query("SELECT * FROM location_data WHERE location_id=:locationId")
     fun getAll(locationId: Int): List<LocationData>
 
+    @Query("SELECT CASE WHEN EXISTS (SELECT * FROM location_data WHERE location_id=:locationId AND restname=:restName) THEN 1 ELSE 0 END")
+    fun isExistData(locationId: Int, restName: String): Boolean
+
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     fun insertLocationData(locationData: LocationData)
 }
