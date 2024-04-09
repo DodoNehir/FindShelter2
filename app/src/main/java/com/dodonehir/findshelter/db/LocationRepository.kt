@@ -41,11 +41,4 @@ class LocationRepository(application: Application) {
         locationDataDao.insertLocationData(locationData)
     }
 
-
-    // TODO: 검색을 어떻게 하지?
-    //  areacode와 equptype을 알면 id를 알 수 있다.
-    //  알 수 없으면 db에 없는 것이므로 requeest를 요청하고 결과를 db에 저장해야 한다.
-    //  알 수 있으면 db에 있는 것이므로 id 검색한다.
-    //  (Location) id == (LocationData) location_id
-    //  location_id로 검색되는 모든 것들이 해당 area_code와 equp_type에 해당하는 쉼터 위치들임!
 }

@@ -70,9 +70,11 @@ dependencies {
 
     // Retrofit with Moshi Converter
     implementation("com.squareup.retrofit2:converter-moshi:2.9.0")
+
     // Moshi: (Gson과 유사하지만, 성능이 더 빠르고 코틀린과의 호환성이 더 높고 직렬화/역직렬화를 쉽게 할 수 있다.)
     implementation("com.squareup.moshi:moshi-kotlin:1.15.0")
     ksp("com.squareup.moshi:moshi-kotlin-codegen:1.15.0")
+    
     // Logging
     implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
 
@@ -81,6 +83,11 @@ dependencies {
 
     // Preferences DataStore
     implementation("androidx.datastore:datastore-preferences:1.0.0")
+
+    // Coroutine
+    val coroutine_version = "1.3.9"
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:$coroutine_version")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:$coroutine_version")
 
     // Room
     val room_version = "2.6.1"

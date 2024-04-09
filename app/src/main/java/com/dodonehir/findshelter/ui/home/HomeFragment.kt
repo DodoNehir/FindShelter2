@@ -26,6 +26,7 @@ import com.dodonehir.findshelter.model.GoogleAddressResponse
 import com.dodonehir.findshelter.model.ShelterResponse
 import com.dodonehir.findshelter.network.DongCodeApi
 import com.dodonehir.findshelter.network.GMSApi
+import com.dodonehir.findshelter.network.RetrofitRepository
 import com.dodonehir.findshelter.network.ShelterApi
 import com.dodonehir.findshelter.ui.settings.dataStore
 import com.google.android.gms.location.FusedLocationProviderClient
@@ -93,16 +94,17 @@ class HomeFragment : Fragment() {
             getDeviceLocation()
         }
 
-//        viewLifecycleOwner.lifecycleScope.launch {
-//        }
+
 
 
         // dataStore에 저장된 설정값 가져오기
         val EQUPTYPE = stringPreferencesKey("equptype")
-        viewLifecycleOwner.lifecycleScope.launch {
+//        viewLifecycleOwner.lifecycleScope.launch { // 대체 무슨 차이인지..
+        lifecycleScope.launch {
             try {
                 equptype = requireContext().dataStore.data.first()[EQUPTYPE].toString()
                 Log.d(TAG, "saved equptype: $equptype ")
+                homeViewModel.equpType = equptype
             } catch (e: IOException) {
                 Log.e(TAG, "IOException occurred: ${e.message}")
             }
@@ -112,30 +114,34 @@ class HomeFragment : Fragment() {
         // 지도 initialize 확인
         homeViewModel.isLocationInitialized.observe(viewLifecycleOwner) { initialized ->
             if (initialized) {
-                getKoreanAddress()
+                var latitude = lastKnownLocation.latitude.toString()
+                var longitude = lastKnownLocation.longitude.toString()
+                homeViewModel.fetchData("${latitude},${longitude}")
             }
         }
 
-        // 현위치 한글 주소 확인
-        homeViewModel.isGetAddressSuccess.observe(viewLifecycleOwner) { success ->
-            if (success) {
-                getCode()
-            }
-        }
 
-        // 현위치 동코드 확인
-        homeViewModel.isGetCodeSuccess.observe(viewLifecycleOwner) {
-            if (it) {
-                getShelterLocations()
-            }
-        }
 
-        homeViewModel.requestUpdateMap.observe(viewLifecycleOwner) {
-            if (it) {
-                Log.d(TAG, "Update map")
-                updateMap()
-            }
-        }
+//        // 현위치 한글 주소 확인
+//        homeViewModel.isGetAddressSuccess.observe(viewLifecycleOwner) { success ->
+//            if (success) {
+//                getCode()
+//            }
+//        }
+//
+//        // 현위치 동코드 확인
+//        homeViewModel.isGetCodeSuccess.observe(viewLifecycleOwner) {
+//            if (it) {
+//                getShelterLocations()
+//            }
+//        }
+//
+//        homeViewModel.requestUpdateMap.observe(viewLifecycleOwner) {
+//            if (it) {
+//                Log.d(TAG, "Update map")
+//                updateMap()
+//            }
+//        }
 
 
 
@@ -174,6 +180,7 @@ class HomeFragment : Fragment() {
         pageLoop = 1
     }
 
+/*
     private fun getShelterLocations() {
         //  equptype은 dataStore에서 가져온 상태이고
         //  areaCode는 homeViewModel에 저장된 상태임
@@ -325,70 +332,8 @@ class HomeFragment : Fragment() {
         })
     }
 
-    private fun getCode() {
-        val codeCall = DongCodeApi.dongCodeService.getCode(
-            homeViewModel.city,
-            homeViewModel.district,
-            homeViewModel.dong
-        )
 
-        codeCall.enqueue(object : Callback<List<CodeResponse>> {
-            override fun onResponse(
-                call: Call<List<CodeResponse>>,
-                response: Response<List<CodeResponse>>
-            ) {
-                val codeResponse = response.body()
-                val code = codeResponse?.get(0)?.code
-                if (code != null) {
-                    Log.d(TAG, "getCode: $code")
-                    homeViewModel.getCodeSuccess(code)
-                }
-            }
-
-            override fun onFailure(call: Call<List<CodeResponse>>, t: Throwable) {
-                Log.e(TAG, "getCode: failed")
-                t.message?.let { Log.e(TAG, it) }
-            }
-
-        })
-    }
-
-    private fun getKoreanAddress() {
-        var latitude = lastKnownLocation.latitude.toString()
-        var longitude = lastKnownLocation.longitude.toString()
-        val geoCall = GMSApi.geoService.getResults(
-            "${latitude},${longitude}",
-            BuildConfig.MAPS_API_KEY,
-            "ko",
-            "street_address"
-        )
-        geoCall.enqueue(object : Callback<GoogleAddressResponse> {
-            override fun onResponse(
-                call: Call<GoogleAddressResponse>,
-                response: Response<GoogleAddressResponse>
-            ) {
-                val googleAddressResponse = response.body()
-
-                if (googleAddressResponse != null) {
-                    val addressParts =
-                        (googleAddressResponse.results[0].formatted_address).split(" ")
-                    val city = addressParts[1]
-                    val district = addressParts[2]
-                    val dong = addressParts[3]
-                    Log.d(TAG, "getKoreanAddress: ${city}, ${district}, ${dong}")
-                    homeViewModel.getAddressSuccess(city, district, dong)
-                } else {
-                    Log.d(TAG, "getKoreanAddress: 응답 내용 status 가 null입니다")
-                }
-            }
-
-            override fun onFailure(call: Call<GoogleAddressResponse>, t: Throwable) {
-                Log.e(TAG, "getKoreanAddress: Failed")
-                t.message?.let { Log.e(TAG, it) }
-            }
-
-        })
-    }
+ */
 
     @SuppressLint("MissingPermission")
     private fun getDeviceLocation() {
