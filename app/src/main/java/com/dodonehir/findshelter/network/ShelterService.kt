@@ -1,13 +1,11 @@
 package com.dodonehir.findshelter.network
 
-import android.content.Context
 import com.dodonehir.findshelter.model.ShelterResponse
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
-import okhttp3.Cache
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
-import retrofit2.Call
+import retrofit2.Response
 import retrofit2.Retrofit
 import retrofit2.converter.moshi.MoshiConverterFactory
 import retrofit2.http.GET
@@ -36,15 +34,14 @@ private val retrofit = Retrofit.Builder()
 
 interface ShelterService {
     @GET("getHeatWaveShelterList3")
-    fun getShelter(
+    suspend fun getShelter(
         @Query("ServiceKey") key: String,
-        @Query("pageNo") pageNo: Int = 1,
-        @Query("numOfRows") numOfRows: Int = 10,
-        @Query("type") type: String = "json",
-//        @Query("year") year: Int = 2022,
+        @Query("pageNo") pageNo: Int,
+        @Query("numOfRows") numOfRows: Int,
+        @Query("type") type: String, // json
         @Query("areaCd") areaCd: String,
         @Query("equptype") equptype: String
-    ): Call<ShelterResponse>
+    ): Response<ShelterResponse>
 
     /**
      * equptype

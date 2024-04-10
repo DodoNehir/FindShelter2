@@ -21,10 +21,13 @@ class SettingsViewModel : ViewModel() {
 
     fun updateEquptype(context: Context, selectedEquptype: String) {
         // Preferences DataStore 에 쓰기
-        viewModelScope.launch {
+        val job = viewModelScope.launch {
             context.dataStore.edit { settings ->
                 settings[EQUPTYPE] = selectedEquptype
             }
         }
+        // 한 번만 실행되도록
+        if (job.isCompleted)
+            job.cancel()
     }
 }

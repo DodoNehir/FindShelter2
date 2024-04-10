@@ -46,13 +46,9 @@ class SettingsFragment : Fragment() {
         _binding = FragmentSettingsBinding.inflate(inflater, container, false)
         val root: View = binding.root
 
-//        val textView: TextView = binding.textSettings
-//        settingsViewModel.text.observe(viewLifecycleOwner) {
-//            textView.text = it
-//        }
 
         // set radio button selected
-        viewLifecycleOwner.lifecycleScope.launch {
+        val job = lifecycleScope.launch {
             try {
                 Log.d(TAG, "selected button: ${requireContext().dataStore.data.first()[EQUPTYPE]}")
 
@@ -63,6 +59,8 @@ class SettingsFragment : Fragment() {
                 Log.e(TAG, "IOException occurred: ${e.message}")
             }
         }
+        if (job.isCompleted)
+            job.cancel()
 
         binding.radioGroup.setOnCheckedChangeListener { group, checkedId ->
             when (checkedId) {
