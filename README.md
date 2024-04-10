@@ -28,49 +28,48 @@
 
 - 앱을 실행하면 처음에는 위치 정보(위도, 경도)를 가져오려 시도합니다.
   위치 확인이 되면 HomeViewModel 클래스에 있는 isLocationInitialized 값을 true로 바꿉니다.
-  그리고 이 값을 관찰하고 있는 관찰자는 true가 된 것을 보고 getKoreanAddress()라는 다음 스탭에 필요한 메서드를 실행시킵니다.
-  이런 방식으로 각 api가 값을 받아오는 것을 확인 후 다음 메서드를 진행시킵니다.
-  아래 코드는 맨 처음 isLocationInitialized 가 true 될 때 observe 하고 있는 코드입니다.
+  그리고 이 값을 관찰하고 있는 관찰자는 true가 된 것을 보고 fetchData() 를 실행합니다.
+  
 </br>
+
 ```
         homeViewModel.isLocationInitialized.observe(viewLifecycleOwner) { initialized ->
             if (initialized) {
-                getKoreanAddress()
+                var latitude = lastKnownLocation.latitude.toString()
+                var longitude = lastKnownLocation.longitude.toString()
+                homeViewModel.fetchData("${latitude},${longitude}", equptype)
             }
         }
 ```
 
 </br>
 
-- getKoreanAddress() 는 HTTP 통신으로 주소를 받아오는 메서드입니다.
-  통신에는 Retrofit을 사용하고 Deserialize에는 Moshi 컨버터를 사용하였습니다.
-  Retrofit 객체 생성에는 비용이 비싸다고 해서 싱글톤으로 사용하도록 했습니다.
-  아래는 그 구현 내용입니다. 결과로 받아오는 GoogleAddressResponse는 json 형식대로 작성된 Data Class 입니다.
-
+- fetchData() 는 쉼터 위치를 받아오는 메서드입니다.
+  처음에는 Google Maps API로 현재 위치의 주소를 받아오고
+  그 다음에는 Fast API로 동코드를 받아옵니다.
+  그 후에 DB에 위치정보가 있는 지 검색합니다. DB에 있으면 로컬 데이터를 받아오고, 없으면 Retrofit을 사용하여 공공 API 에 위치를 요청합니다.
+  모든 요청이 끝난 뒤에는 맵을 업데이트합니다.
+  
 ```
-private val retrofit = Retrofit.Builder()
-    .addConverterFactory(MoshiConverterFactory.create(moshi))
-    .baseUrl(BASE_URL)
-    .client(client)
-    .build()
+    fun fetchData() {
+        
+        viewModelScope.launch {
+            repository.getAddressWithResult() ...
 
-interface GeoService {
-    @GET("maps/api/geocode/json")
-    fun getResults(
-        @Query("latlng") latlng: String,
-        @Query("key") API_KEY: String,
-        @Query("language") language: String, // ko
-        @Query("result_type") resultType: String, // street_address
-    ): Call<GoogleAddressResponse>
-}
+            repository.getCode() ...
 
-object GMSApi {
+            // DB get
+            val location = repository.getLocation(areaCode.toString(), equpType)
+            if (location == null) {
+                callShelterRequest()
+            } else {
+                getLocationFromDB(location.id)
+            }
 
-    val geoService: GeoService by lazy {
-        retrofit.create(GeoService::class.java)
+            requestUpdateMap()
+        }
+
     }
-
-}
 ```
 </br>
 
@@ -92,7 +91,7 @@ object GMSApi {
 
 /* 값 읽기 */
     val EQUPTYPE = stringPreferencesKey("equptype")
-    viewLifecycleOwner.lifecycleScope.launch {
+    lifecycleScope.launch {
         equptype = requireContext().dataStore.data.first()[EQUPTYPE].toString()
     }
 ```
@@ -102,7 +101,11 @@ object GMSApi {
 ## 5. 주요 문제점과 해결법 & 개선점
 1.
 - 문제점: 매번 쉼터 위치를 request함으로 api요청 횟수를 낭비하게 되고 한 번에 많은 양을 요청하면 timeout 에러가 발생함
-- 원인: request 후 데이터를 저장하지 않아서 부담이 생김
-- 해결법: Room을 사용해서 한 번 request한 정보는 저장하도록 했음
+- 원인: request 후 데이터를 저장하지 않음
+- 해결법: Room을 사용해서 한 번 request한 정보는 저장하도록 변경함
 
 2. 앱을 배포하려면 우선 FastAPI가 로컬이 아니라 외부에서도 접속 가능하도록 해야 한다. 무료 서버 호스팅 찾기.
+
+3.
+- 문제점: 로컬 DB나 네트워크 통신을 할 때는 메인 스레드가 아니라 백그라운드에서 실행되어야 하는데, 코루틴이 2개가 만들어지고 있음
+- 원인: 두 개의 Fragment 에서 코루틴이 사용되고 있기 때문에 한 곳에서의 코루틴이 사라지지 않아서 발생한다고 예상됨
