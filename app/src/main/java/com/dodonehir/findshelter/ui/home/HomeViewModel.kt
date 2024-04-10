@@ -1,20 +1,21 @@
 package com.dodonehir.findshelter.ui.home
 
+import android.app.Application
 import android.location.Location
 import android.util.Log
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dodonehir.findshelter.db.LocationData
-import com.dodonehir.findshelter.network.RetrofitRepository
+import com.dodonehir.findshelter.repository.LocationRepository
 import com.google.android.gms.maps.model.CameraPosition
 import kotlinx.coroutines.launch
 
-class HomeViewModel() : ViewModel() {
+class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     private val TAG = javaClass.name
-    private val repository = RetrofitRepository()
+    private val repository = LocationRepository(application)
 
 
     private val _isLocationInitialized = MutableLiveData<Boolean>()
@@ -38,11 +39,12 @@ class HomeViewModel() : ViewModel() {
 
     var areaCode: Long = 0
 
-    var pageNo = 1
+    //    var pageNo = 1
     var numOfRows = 3
-    var areaCd = "10121211"
-    var equpType = "001"
-    var totalCount = 0
+    lateinit var equpType: String
+    var totalCount: Int? = 0
+
+    var locationId: Int = 0
 
 
     fun setLocationInitialized(init: Boolean, location: Location) {
@@ -52,9 +54,10 @@ class HomeViewModel() : ViewModel() {
         }
     }
 
-    fun fetchData(latlng: String) {
+    fun fetchData(latlng: String, equp: String) {
+        equpType = equp
         // launch 는 동기
-        viewModelScope.launch {
+        val job = viewModelScope.launch {
             // Make the network call and suspend execution until it finished
             // TODO
             //  launch 는 예외가 발생하면 부모에게 전달한다.
@@ -88,23 +91,128 @@ class HomeViewModel() : ViewModel() {
                     Log.e(TAG, "get code failed")
                 }
 
-            // TODO 요청 전에 db와 비교해봐야 한다.
-            //  있으면 db껄 쓰도록 하고   없으면 request한다.  그러면 homefragment에서 locationViewModel을 사용해야 하는 건지
-            //  여기서 locationViewModel을 사용하는건지..???? 뷰모델이 뷰모델을 사용하나?
-            //  서버가 상태가 좋지 않으면 기획적으로 커버하자.
-            //  필터 걸어서 요청해오는 방법?
-            repository.getShelter(pageNo, numOfRows, areaCd, equpType)
-                .onSuccess {
+            // DB get
+            val location = repository.getLocation(areaCode.toString(), equpType)
+            if (location == null) {
+                Log.d(TAG, "location Id doesn't exist.")
+                callShelterRequest()
+            } else if (location.totalCount == 0) {
+                Log.d(TAG, "location Id is exist. but There's no result")
+                // TODO Main에서 검색 결과 없다고 메시지 띄우도록 flow 만들어서 보내기
+            } else {
+                Log.d(TAG, "location Id is ${location.id}")
+                getLocationFromDB(location.id)
+            }
 
+            // TODO
+            //  통신 후에도, db에서 가져온 후에도 순서대로 잘 되는 지 확인하기
+            requestUpdateMap()
+
+        }
+
+        // 한 번만 실행되도록
+        if (job.isCompleted)
+            job.cancel()
+    }
+
+    suspend fun callShelterRequest() {
+        // TODO
+        //  서버가 상태가 좋지 않으면 기획적으로 커버하자.
+        //  필터 걸어서 요청해오는 방법?
+        repository.getShelter(1, numOfRows, areaCode.toString(), equpType)
+            .onSuccess {
+                totalCount = it.HeatWaveShelter?.get(0)?.head?.get(0)?.totalCount
+                Log.d(TAG, "TotalCount: $totalCount")
+
+                // totalCount 값이 Null 이라면 해당 쉼터가 없으므로 0으로 대체해서 넣는다
+                val location =
+                    com.dodonehir.findshelter.db.Location(
+                        areaCode.toString(),
+                        equpType,
+                        totalCount ?: 0
+                    )
+
+                // db insert
+                repository.insertLocation(location)
+                Log.d(TAG, "Insesrt new location")
+
+                // db get (확인하기)
+                locationId = repository.getLocation(areaCode.toString(), equpType)?.id ?: 0
+                Log.d(TAG, "Get Location. new value id is $locationId")
+
+                // db에 locationData 저장
+                it.HeatWaveShelter?.get(1)?.row?.forEach {
+                    // 값이 0.0 일 때나 중복될 떄는 저장하지 않는다.
+//                    if (locationId != 0 && it.la != 0.0) {
+                    if (it.la != 0.0) {
+                        val locationData =
+                            LocationData(it.restname, it.la, it.lo, locationId)
+
+                        // 그리고 ViewModel 의 MutableList 에도 저장한다.
+                        if (!repository.isExistData(locationId, it.restname)) {
+                            Log.d(TAG, "Insert one LocationData")
+                            repository.insertLocationData(locationData)
+                            locationDataMutableList.add(locationData)
+                        }
+                    }
+                }
+
+                // 남은 페이지가 있으면 반복
+                if (totalCount != null) {
+                    if (totalCount!! > numOfRows) {
+                        callShelterLoop(totalCount!!)
+                    }
+                } else {
+                    Log.d(TAG, "데이터 없음")
+                    // TODO Main 스레드에서 알 수 있도록 flow 로 전달해야 한다
+                }
+
+            }
+            .onFailure {
+                Log.e(TAG, "callShelterRequest failed")
+                it.message?.let { Log.e(TAG, it) }
+            }
+    }
+
+    suspend fun callShelterLoop(totalCount: Int) {
+        var pageLoop = (totalCount + numOfRows - 1) / numOfRows
+
+        for (i in 2..pageLoop) {
+            repository.getShelter(i, numOfRows, areaCode.toString(), equpType)
+                .onSuccess {
+                    // db에 locationData 저장
+                    it.HeatWaveShelter?.get(1)?.row?.forEach {
+                        if (it.la != 0.0) {
+                            val locationData =
+                                LocationData(it.restname, it.la, it.lo, locationId)
+
+                            if (!repository.isExistData(locationId, it.restname)) {
+                                Log.d(TAG, "Insert one LocationData")
+                                repository.insertLocationData(locationData)
+                                locationDataMutableList.add(locationData)
+                            }
+                        }
+                    }
                 }
                 .onFailure {
-
+                    Log.e(TAG, "callShelterRequest failed")
+                    it.message?.let { Log.e(TAG, it) }
                 }
         }
     }
 
+    suspend fun getLocationFromDB(locationId: Int) {
+        Log.d(TAG, "===== Get Location Data from DB =====")
+        repository.getLocationData(locationId).forEach {
+            Log.d(TAG, "restname: ${it.restname}")
+            locationDataMutableList.add(it)
+        }
+        Log.d(TAG, "=====================================")
+    }
+
     fun requestUpdateMap() {
         _requestUpdateMap.value = true
+        Log.d(TAG, "request update map")
     }
 
     fun finishedUpdateMap() {

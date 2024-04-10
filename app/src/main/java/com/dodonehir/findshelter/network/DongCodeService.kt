@@ -6,15 +6,15 @@ import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
-import retrofit2.Call
 import retrofit2.Response
 import retrofit2.Retrofit
 import retrofit2.converter.moshi.MoshiConverterFactory
 import retrofit2.http.GET
 import retrofit2.http.Query
 
+private const val BASE_URL = "http://172.30.1.64:8080/"
 //private const val BASE_URL = "http://192.168.154.175:8080/"
-private const val BASE_URL = "http://192.168.0.144:8080/"
+//private const val BASE_URL = "http://192.168.0.144:8080/"
 //private const val BASE_URL = "http://172.30.1.71:8080/"
 
 private val moshi = Moshi.Builder()
