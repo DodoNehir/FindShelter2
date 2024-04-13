@@ -10,6 +10,7 @@ import androidx.lifecycle.viewModelScope
 import com.dodonehir.findshelter.db.LocationData
 import com.dodonehir.findshelter.repository.LocationRepository
 import com.google.android.gms.maps.model.CameraPosition
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 
 class HomeViewModel(application: Application) : AndroidViewModel(application) {
@@ -30,6 +31,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val _requestUpdateMap = MutableLiveData<Boolean>()
     val requestUpdateMap: LiveData<Boolean> = _requestUpdateMap
 
+    private val _errorLiveData = MutableLiveData<String>()
+    val errorLiveData: LiveData<String> = _errorLiveData
+
     var locationPermissionGranted = false
     var cameraPosition: CameraPosition? = null
 
@@ -40,7 +44,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     var areaCode: Long = 0
 
     //    var pageNo = 1
-    var numOfRows = 3
+    var numOfRows = 4
     lateinit var equpType: String
     var totalCount: Int? = 0
 
@@ -58,55 +62,57 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         equpType = equp
         // launch 는 동기
         val job = viewModelScope.launch {
-            // Make the network call and suspend execution until it finished
-            // TODO
-            //  launch 는 예외가 발생하면 부모에게 전달한다.
-            //  그래서 부모 코루틴도 자식에게서 발생한 오류와 똑같은 오류로 취소된다.
-            //  이로 인해 부모의 나머지 자식도 모두 취소된다.
-            //  자식들이 모두 취소되고 나면 부모는 코루틴 트리의 윗부분으로 예외를 전달한다.
-            repository.getAddressWithResult(latlng)
-                .onSuccess { googleAddressResponse ->
-                    Log.d(TAG, "코루틴 + Result 예시: $googleAddressResponse")
+            try {
+                repository.getAddressWithResult(latlng)
+                    .onSuccess { googleAddressResponse ->
+                        Log.d(TAG, "get Address Response: $googleAddressResponse")
 
-                    val addressParts =
-                        (googleAddressResponse.results[0].formatted_address).split(" ")
-                    city = addressParts[1]
-                    district = addressParts[2]
-                    dong = addressParts[3]
-                    Log.d(TAG, "getKoreanAddress: ${city}, ${district}, ${dong}")
+                        val addressParts =
+                            (googleAddressResponse.results[0].formatted_address).split(" ")
+                        city = addressParts[1]
+                        district = addressParts[2]
+                        dong = addressParts[3]
+                        Log.d(TAG, "getKoreanAddress: ${city}, ${district}, ${dong}")
+                    }
+                    .onFailure {
+                        Log.e(TAG, "get korean address failed: ${it.message}")
+                        this@launch.cancel()
+                    }
+
+
+                repository.getCode(city, district, dong)
+                    .onSuccess {
+                        Log.d(TAG, "get Code Response: ${it.get(0)}")
+
+                        val codeResponse = it.get(0)
+                        areaCode = codeResponse.code
+                    }
+                    .onFailure {
+                        Log.e(TAG, "get code failed: ${it.message}")
+                        this@launch.cancel()
+                    }
+
+                // DB get
+                val location = repository.getLocation(areaCode.toString(), equpType)
+                if (location == null) {
+                    Log.d(TAG, "Location ID doesn't exist.")
+                    callShelterRequest()
+                } else if (location.totalCount == 0) {
+                    Log.d(TAG, "Location ID is exist. but There's no result")
+                    _errorLiveData.value = "해당되는 쉼터가 없습니다. 다른 유형을 선택해주세요"
+                } else {
+                    Log.d(TAG, "Location ID is exist. ID: ${location.id}")
+                    getLocationFromDB(location.id)
                 }
-                .onFailure {
-                    Log.e(TAG, "get korean address failed")
-                }
 
+                // TODO
+                //  통신 후에도, db에서 가져온 후에도 순서대로 잘 되는 지 확인하기
+                requestUpdateMap()
 
-            repository.getCode(city, district, dong)
-                .onSuccess {
-                    Log.d(TAG, "coroutine + Result : ${it.get(0)}")
-
-                    val codeResponse = it.get(0)
-                    areaCode = codeResponse.code
-                }
-                .onFailure {
-                    Log.e(TAG, "get code failed")
-                }
-
-            // DB get
-            val location = repository.getLocation(areaCode.toString(), equpType)
-            if (location == null) {
-                Log.d(TAG, "location Id doesn't exist.")
-                callShelterRequest()
-            } else if (location.totalCount == 0) {
-                Log.d(TAG, "location Id is exist. but There's no result")
-                // TODO Main에서 검색 결과 없다고 메시지 띄우도록 flow 만들어서 보내기
-            } else {
-                Log.d(TAG, "location Id is ${location.id}")
-                getLocationFromDB(location.id)
+            } catch (e: Exception) {
+                Log.e(TAG, "Exception occurred: ${e.message}")
+                _errorLiveData.value = "Exception occurred: ${e.message}"
             }
-
-            // TODO
-            //  통신 후에도, db에서 가져온 후에도 순서대로 잘 되는 지 확인하기
-            requestUpdateMap()
 
         }
 
@@ -122,7 +128,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         repository.getShelter(1, numOfRows, areaCode.toString(), equpType)
             .onSuccess {
                 totalCount = it.HeatWaveShelter?.get(0)?.head?.get(0)?.totalCount
-                Log.d(TAG, "TotalCount: $totalCount")
+                Log.d(TAG, "get Shelter Response - totalCount: $totalCount")
 
                 // totalCount 값이 Null 이라면 해당 쉼터가 없으므로 0으로 대체해서 넣는다
                 val location =
@@ -134,11 +140,11 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
                 // db insert
                 repository.insertLocation(location)
-                Log.d(TAG, "Insesrt new location")
+                Log.d(TAG, "Insesrt new location to DB")
 
                 // db get (확인하기)
                 locationId = repository.getLocation(areaCode.toString(), equpType)?.id ?: 0
-                Log.d(TAG, "Get Location. new value id is $locationId")
+                Log.d(TAG, "this location and equpType ID: $locationId")
 
                 // db에 locationData 저장
                 it.HeatWaveShelter?.get(1)?.row?.forEach {
@@ -150,7 +156,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
                         // 그리고 ViewModel 의 MutableList 에도 저장한다.
                         if (!repository.isExistData(locationId, it.restname)) {
-                            Log.d(TAG, "Insert one LocationData")
+                            Log.d(TAG, "Inserted shelter's name is: ${it.restname}")
                             repository.insertLocationData(locationData)
                             locationDataMutableList.add(locationData)
                         }
@@ -164,7 +170,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                     }
                 } else {
                     Log.d(TAG, "데이터 없음")
-                    // TODO Main 스레드에서 알 수 있도록 flow 로 전달해야 한다
+                    _errorLiveData.value = "해당되는 쉼터가 없습니다. 다른 유형을 선택해주세요"
                 }
 
             }
@@ -187,7 +193,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                                 LocationData(it.restname, it.la, it.lo, locationId)
 
                             if (!repository.isExistData(locationId, it.restname)) {
-                                Log.d(TAG, "Insert one LocationData")
+                                Log.d(TAG, "Inserted shelter's name is: ${it.restname}")
                                 repository.insertLocationData(locationData)
                                 locationDataMutableList.add(locationData)
                             }
@@ -212,7 +218,6 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     fun requestUpdateMap() {
         _requestUpdateMap.value = true
-        Log.d(TAG, "request update map")
     }
 
     fun finishedUpdateMap() {

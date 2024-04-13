@@ -33,8 +33,7 @@ interface GeoService {
         @Query("latlng") latlng: String,
         @Query("key") API_KEY: String,
         @Query("language") language: String, // ko
-        @Query("result_type") resultType: String, // street_address
-        // "ROOFTOP"는 상세 주소 수준까지 Google의 위치 정보가 정확한 주소만 반환합니다.
+        @Query("result_type") resultType: String, // sublocality_level_2
     ): Response<GoogleAddressResponse>
 }
 

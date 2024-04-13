@@ -10,6 +10,7 @@ import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Toast
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -42,6 +43,7 @@ class HomeFragment : Fragment() {
     private lateinit var fusedLocationProviderClient: FusedLocationProviderClient
     private lateinit var homeViewModel: HomeViewModel
     private lateinit var map: GoogleMap
+    private lateinit var toast: Toast
     private val defaultLocation_GwanghwamunSquare = LatLng(37.575939, 126.976856)
     lateinit var lastKnownLocation: Location
     private var equptype = "001"
@@ -101,12 +103,14 @@ class HomeFragment : Fragment() {
 
         homeViewModel.requestUpdateMap.observe(viewLifecycleOwner) {
             if (it) {
-                Log.d(TAG, "Update map")
+                Log.d(TAG, "Start update map")
                 updateMap()
             }
         }
 
-
+        homeViewModel.errorLiveData.observe(viewLifecycleOwner) {
+            showErrorToast(it)
+        }
 
         return binding.root
     }
@@ -252,6 +256,15 @@ class HomeFragment : Fragment() {
         } catch (e: SecurityException) {
             Log.e("Exception: %s", e.message, e)
         }
+    }
+
+    fun showErrorToast(message: String) {
+        // 기존에 표시된 토스트 메시지가 있다면 취소
+        if (::toast.isInitialized) {
+            toast.cancel()
+        }
+        toast = Toast.makeText(requireContext(), message, Toast.LENGTH_LONG)
+        toast.show()
     }
 
     companion object {
