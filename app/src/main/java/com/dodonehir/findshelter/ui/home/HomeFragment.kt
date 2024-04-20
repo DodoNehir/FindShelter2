@@ -10,6 +10,7 @@ import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Toast
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -26,6 +27,8 @@ import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.SupportMapFragment
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.MarkerOptions
+import com.google.maps.android.clustering.ClusterItem
+import com.google.maps.android.clustering.ClusterManager
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.io.IOException
@@ -42,6 +45,8 @@ class HomeFragment : Fragment() {
     private lateinit var fusedLocationProviderClient: FusedLocationProviderClient
     private lateinit var homeViewModel: HomeViewModel
     private lateinit var map: GoogleMap
+    private lateinit var clusterManager: ClusterManager<MyItem>
+    private lateinit var toast: Toast
     private val defaultLocation_GwanghwamunSquare = LatLng(37.575939, 126.976856)
     lateinit var lastKnownLocation: Location
     private var equptype = "001"
@@ -69,8 +74,6 @@ class HomeFragment : Fragment() {
             updateLocationUI()
             getDeviceLocation()
         }
-
-
 
 
         // dataStore에 저장된 설정값 가져오기
@@ -101,12 +104,14 @@ class HomeFragment : Fragment() {
 
         homeViewModel.requestUpdateMap.observe(viewLifecycleOwner) {
             if (it) {
-                Log.d(TAG, "Update map")
+                Log.d(TAG, "Start update map")
                 updateMap()
             }
         }
 
-
+        homeViewModel.errorLiveData.observe(viewLifecycleOwner) {
+            showErrorToast(it)
+        }
 
         return binding.root
     }
@@ -128,17 +133,10 @@ class HomeFragment : Fragment() {
     }
 
     private fun updateMap() {
-        // shelterInfo pin point map에 표시하기
-        homeViewModel.locationDataMutableList.forEach {
-            map.addMarker(
-                MarkerOptions()
-                    .position(LatLng(it.la, it.lo))
-                    .title(it.restname)
-            )
-        }
+        setUpClusterer()
 
-        // 다 끝나면 viewmodel의 update indicator, pageNumber, pageLoop를 initialize
         homeViewModel.finishedUpdateMap()
+
     }
 
 
@@ -254,12 +252,87 @@ class HomeFragment : Fragment() {
         }
     }
 
+    fun showErrorToast(message: String) {
+        // 기존에 표시된 토스트 메시지가 있다면 취소
+        if (::toast.isInitialized) {
+            toast.cancel()
+        }
+        toast = Toast.makeText(requireContext(), message, Toast.LENGTH_LONG)
+        toast.show()
+    }
+
     companion object {
         /**
          * Request code for location permission
          */
         private const val PERMISSIONS_REQUEST_ACCESS_FINE_LOCATION = 1
 
-        private const val DEFAULT_ZOOM = 18
+        private const val DEFAULT_ZOOM = 16
+    }
+
+    private fun setUpClusterer() {
+        // 성산제1동 (37.5619214, 126.912189)
+
+        // clusterManager 초기화
+        clusterManager = ClusterManager(requireContext(), map)
+
+        map.setOnCameraIdleListener(clusterManager)
+        map.setOnMarkerClickListener(clusterManager)
+
+        addItems()
+
+        // 핀이 보이도록 하기 위함
+        map.moveCamera(
+            CameraUpdateFactory.newLatLngZoom(
+                LatLng(
+                    lastKnownLocation.latitude,
+                    lastKnownLocation.longitude
+                ),
+                DEFAULT_ZOOM.toFloat()
+            )
+        )
+    }
+
+    private fun addItems() {
+        homeViewModel.locationDataMutableList.forEach {
+            val oneItem =
+                MyItem(it.la, it.lo, it.restname, "")
+            clusterManager.addItem(oneItem)
+        }
+    }
+
+
+    inner class MyItem(
+        lat: Double,
+        lng: Double,
+        title: String,
+        snippet: String
+    ) : ClusterItem {
+
+        private val position: LatLng
+        private val title: String
+        private val snippet: String
+
+        override fun getPosition(): LatLng {
+            return position
+        }
+
+        override fun getTitle(): String {
+            return title
+        }
+
+        override fun getSnippet(): String {
+            return snippet
+        }
+
+//        fun getZIndex(): Float {
+//            return 0f
+//        }
+
+        init {
+            position = LatLng(lat, lng)
+            this.title = title
+            this.snippet = snippet
+        }
     }
 }

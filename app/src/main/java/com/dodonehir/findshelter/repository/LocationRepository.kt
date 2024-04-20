@@ -70,7 +70,12 @@ class LocationRepository(application: Application) {
     ): Result<GoogleAddressResponse> = kotlin.runCatching {
 
         val response =
-            GMSApi.geoService.getResults(latlng, BuildConfig.MAPS_API_KEY, "ko", "sublocality_level_2")
+            GMSApi.geoService.getResults(
+                latlng,
+                BuildConfig.MAPS_API_KEY,
+                "ko",
+                "sublocality_level_2"
+            )
 
         if (response.isSuccessful) {
             response.body() ?: throw RuntimeException("이럴 수가...")

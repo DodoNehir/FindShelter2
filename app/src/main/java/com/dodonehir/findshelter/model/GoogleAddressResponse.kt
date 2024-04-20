@@ -17,13 +17,14 @@ data class PlusCode(
 
 ////@JsonClass(generateAdapter = true)
 data class Result(
-    val address_components: List<AddressComponent>,
+//    val address_components: List<AddressComponent>,
     val formatted_address: String,
-    val geometry: Geometry,
+//    val geometry: Geometry,
     val place_id: String,
-    val plus_code: PlusCode,
-    val types: List<String>
+//    val types: List<String>
 )
+
+/*
 //@JsonClass(generateAdapter = true)
 data class AddressComponent(
     val long_name: String,
@@ -56,3 +57,4 @@ data class Southwest(
     val lat: Double,
     val lng: Double
 )
+ */
