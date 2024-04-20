@@ -14,7 +14,7 @@ import retrofit2.http.Query
 
 //private const val BASE_URL = "http://172.30.1.64:8080/"
 //private const val BASE_URL = "http://192.168.154.175:8080/"
-private const val BASE_URL = "http://192.168.154.141:8080/"
+private const val BASE_URL = "http://192.168.154.159:8080/"
 //private const val BASE_URL = "http://192.168.0.144:8080/"
 //private const val BASE_URL = "http://172.30.1.71:8080/"
 
