@@ -60,6 +60,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     fun fetchData(latlng: String, equp: String) {
         equpType = equp
+        locationDataMutableList.clear()
+
         // launch 는 동기
         val job = viewModelScope.launch {
             try {
