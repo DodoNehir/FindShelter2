@@ -97,6 +97,7 @@ class HomeFragment : Fragment() {
             if (initialized) {
                 var latitude = lastKnownLocation.latitude.toString()
                 var longitude = lastKnownLocation.longitude.toString()
+                binding.progressCircular.visibility = View.VISIBLE
                 homeViewModel.fetchData("${latitude},${longitude}", equptype)
             }
         }
@@ -105,11 +106,13 @@ class HomeFragment : Fragment() {
         homeViewModel.requestUpdateMap.observe(viewLifecycleOwner) {
             if (it) {
                 Log.d(TAG, "Start update map")
+                binding.progressCircular.visibility = View.GONE
                 updateMap()
             }
         }
 
         homeViewModel.errorLiveData.observe(viewLifecycleOwner) {
+            binding.progressCircular.visibility = View.GONE
             showErrorToast(it)
         }
 
