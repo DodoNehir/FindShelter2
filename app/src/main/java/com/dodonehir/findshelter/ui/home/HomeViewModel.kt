@@ -10,6 +10,9 @@ import androidx.lifecycle.viewModelScope
 import com.dodonehir.findshelter.db.LocationData
 import com.dodonehir.findshelter.repository.LocationRepository
 import com.google.android.gms.maps.model.CameraPosition
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 
@@ -50,6 +53,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     var locationId: Int = 0
 
+    private var isFetching = false
 
     fun setLocationInitialized(init: Boolean, location: Location) {
         _isLocationInitialized.value = init
@@ -59,9 +63,16 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun fetchData(latlng: String, equp: String) {
+        if (isFetching) {
+            return
+        }
+        isFetching = true
+
         equpType = equp
+        locationDataMutableList.clear()
+
         // launch 는 동기
-        val job = viewModelScope.launch {
+        viewModelScope.launch {
             try {
                 repository.getAddressWithResult(latlng)
                     .onSuccess { googleAddressResponse ->
@@ -112,13 +123,12 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             } catch (e: Exception) {
                 Log.e(TAG, "Exception occurred: ${e.message}")
                 _errorLiveData.value = "Exception occurred: ${e.message}"
+            } finally {
+                isFetching = false
             }
 
         }
 
-        // 한 번만 실행되도록
-        if (job.isCompleted)
-            job.cancel()
     }
 
     suspend fun callShelterRequest() {

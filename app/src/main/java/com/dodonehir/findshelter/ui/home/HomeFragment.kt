@@ -294,6 +294,8 @@ class HomeFragment : Fragment() {
     }
 
     private fun addItems() {
+        clusterManager.clearItems()
+
         homeViewModel.locationDataMutableList.forEach {
             val oneItem =
                 MyItem(it.la, it.lo, it.restname, "")
