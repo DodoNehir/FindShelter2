@@ -12,7 +12,7 @@ import retrofit2.converter.moshi.MoshiConverterFactory
 import retrofit2.http.GET
 import retrofit2.http.Query
 
-private const val BASE_URL = "http://172.30.121.245:8080/"
+private const val BASE_URL = "https://addresscode-635a34f83933.herokuapp.com/"
 //private const val BASE_URL = "http://192.168.154.175:8080/"
 //private const val BASE_URL = "http://192.168.154.159:8080/"
 //private const val BASE_URL = "http://192.168.0.144:8080/"
